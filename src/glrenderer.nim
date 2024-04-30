@@ -104,8 +104,8 @@ proc rect*(x, y, w, h: GLfloat): GLRect =
 proc instance*(texRect: GLRect; modelMat: Mat4x4f): GLinstance =
     GLInstance(texRect: texRect, modelMat: modelMat)
 
-proc init(instSeq: var GLInstanceSeq; program: GLProgram) =
-    instSeq.maxLen = 1
+proc init(instSeq: var GLInstanceSeq; program: GLProgram; initLen: int) =
+    instSeq.maxLen = initLen
 
     glGenBuffers(1, instSeq.buffer.addr);
 
@@ -248,7 +248,7 @@ proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: G
     let searchPos = renderer.toDraw.binarySearch(item, drawItemCmp)
     if searchPos == -1:
         renderer.use(shape)
-        item.instances.init(renderer.usedProgram[])
+        item.instances.init(renderer.usedProgram[], 4)
         item.instances.add(instance)
         renderer.toDraw.add(item)
     else:
@@ -261,7 +261,6 @@ proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: G
 #    renderer.draw(shape, image, instance(fullRect, idMat))
 
 proc render*(renderer: var GLRenderer) =
-    if renderer.toDraw.len() == 0: return
     renderer.toDraw.sort(drawItemCmp)
     var
         lastShape: ptr GLShape = nil

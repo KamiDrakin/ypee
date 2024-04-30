@@ -82,7 +82,9 @@ proc init(program: var GLProgram; vShaderSrc, fShaderSrc: string; uniforms: seq[
 
     const attributes = ["vPos", "vColor", "vTexCoords", "texRect", "modelMat"]
     for attr in attributes:
-        program.attributes[attr] = glGetAttribLocation(program.id, attr.cstring).GLuint
+        let attrPos = glGetAttribLocation(program.id, attr.cstring)
+        assert attrPos >= 0
+        program.attributes[attr] = attrPos.GLuint
 
     for uni in uniforms:
         program.uniforms[uni] = glGetUniformLocation(program.id, uni.cstring)
@@ -108,10 +110,25 @@ proc init(instSeq: var GLInstanceSeq; program: GLProgram) =
     glGenBuffers(1, instSeq.buffer.addr);
 
     glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
-    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLRect)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
+    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLInstance)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
+
     glEnableVertexAttribArray(program.attributes["texRect"])
-    glVertexAttribPointer(program.attributes["texRect"], 4, cGL_FLOAT, false, sizeof(GLRect).GLsizei, nil)
+    glVertexAttribPointer(program.attributes["texRect"], 4, cGL_FLOAT, false, sizeof(GLInstance).GLsizei, cast[pointer](0))
+
+    glEnableVertexAttribArray(program.attributes["modelMat"])
+    glVertexAttribPointer(program.attributes["modelMat"], 4, cGL_FLOAT, false, sizeof(GLInstance).GLsizei, cast[pointer](sizeof(Vec4f)))
+    glEnableVertexAttribArray(program.attributes["modelMat"] + 1)
+    glVertexAttribPointer(program.attributes["modelMat"] + 1, 4, cGL_FLOAT, false, sizeof(GLInstance).GLsizei, cast[pointer](sizeof(Vec4f) * 2))
+    glEnableVertexAttribArray(program.attributes["modelMat"] + 2)
+    glVertexAttribPointer(program.attributes["modelMat"] + 2, 4, cGL_FLOAT, false, sizeof(GLInstance).GLsizei, cast[pointer](sizeof(Vec4f) * 3))
+    glEnableVertexAttribArray(program.attributes["modelMat"] + 3)
+    glVertexAttribPointer(program.attributes["modelMat"] + 3, 4, cGL_FLOAT, false, sizeof(GLInstance).GLsizei, cast[pointer](sizeof(Vec4f) * 4))
+    
     glVertexAttribDivisor(program.attributes["texRect"], 1)
+    glVertexAttribDivisor(program.attributes["modelMat"], 1)
+    glVertexAttribDivisor(program.attributes["modelMat"] + 1, 1)
+    glVertexAttribDivisor(program.attributes["modelMat"] + 2, 1)
+    glVertexAttribDivisor(program.attributes["modelMat"] + 3, 1)
 
 proc len(instSeq: GLInstanceSeq): int =
     instSeq.instances.len()
@@ -124,17 +141,14 @@ proc clear(instSeq: var GLInstanceSeq) =
 
 proc resize(instSeq: var GLInstanceSeq) =
     instSeq.maxLen *= 2
-    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLRect)).GLsizeiptr, instSeq.instances[0].texRect.addr, GL_DYNAMIC_DRAW)
+    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLInstance)).GLsizeiptr, instSeq.instances[0].addr, GL_DYNAMIC_DRAW)
 
 proc bufferData(instSeq: var GLInstanceSeq) =
     glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
     if instSeq.instances.len() > instSeq.maxLen:
-        echo "resizing"
         instSeq.resize()
     else:
-        echo cast[array[4, GLfloat]](instSeq.instances[0].texRect)
-        glBufferSubData(GL_ARRAY_BUFFER, 0, (instSeq.len() * sizeof(GLRect)).GLsizeiptr, instSeq.instances[0].texRect.addr)
-        #glBufferData(GL_ARRAY_BUFFER, (instSeq.len() * sizeof(GLRect)).GLsizeiptr, instSeq.instances[0].texRect.addr, GL_STATIC_DRAW)
+        glBufferSubData(GL_ARRAY_BUFFER, 0, (instSeq.len() * sizeof(GLInstance)).GLsizeiptr, instSeq.instances[0].addr)
 
 proc init*(image: var GLImage; path: string) =
     let bmp = loadBMP24(path)
@@ -209,6 +223,7 @@ proc use(renderer: var GLRenderer; program: GLProgram) =
 proc use(renderer: GLRenderer; image: GLImage) =
     let imageSize = [image.size[0].GLfloat, image.size[1].GLfloat]
     glUniform2fv(renderer.uniform("texSize"), 1.GLsizei, cast[ptr GLfloat](imageSize[0].addr))
+    glActiveTexture(GL_TEXTURE0)
     glBindTexture(GL_TEXTURE_2D, image.texture)
 
 proc use(renderer: var GLRenderer; shape: GLShape) =
@@ -256,12 +271,9 @@ proc render*(renderer: var GLRenderer) =
             renderer.use(item.shape[])
             lastShape = item.shape
         if item.image != lastImage:
-            renderer.use(item.image[]) # maybe lower down, idk
+            renderer.use(item.image[])
             lastImage = item.image
-        #glUniform4fv(renderer.uniform("texRect"), 1.GLsizei, cast[ptr GLfloat](item.instance.texRect.addr))
         let itemPtr = item.addr
         itemPtr[].instances.bufferData()
-        glDrawElementsInstanced(GL_TRIANGLES, item.shape[].nIndices, GL_UNSIGNED_INT, nil, item.instances.len().GLsizei)
-        #glDrawElements(GL_TRIANGLES, item.shape[].nIndices, GL_UNSIGNED_INT, nil)
+        glDrawElementsInstanced(GL_TRIANGLES, item.shape[].nIndices * 3, GL_UNSIGNED_INT, nil, item.instances.len().GLsizei)
         itemPtr[].instances.clear()
-    #renderer.toDraw.setLen(0)

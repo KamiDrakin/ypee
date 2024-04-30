@@ -26,6 +26,10 @@ type
     GLInstance* = object
         texRect: GLRect
         modelMat: Mat4x4f
+    GLInstanceSeq = object
+        instances: seq[GLInstance]
+        buffer: GLuint
+        maxLen: int
     GLImage* = object
         texture: GLTexture
         size: (GLsizei, GLsizei)
@@ -36,7 +40,7 @@ type
     GLDrawItem = object
         shape: ptr GLShape
         image: ptr GLImage
-        instance: GLInstance
+        instances: GLInstanceSeq
     GLRenderer* = object
         programs: Table[uint, GLProgram]
         usedProgram: ptr GLProgram
@@ -76,9 +80,9 @@ proc init(program: var GLProgram; vShaderSrc, fShaderSrc: string; uniforms: seq[
     glGetProgramiv(program.id, GL_LINK_STATUS, cast[ptr GLint](success.addr))
     assert success
 
-    const attributes = ["vPos", "vColor", "vTexCoords"]
+    const attributes = ["vPos", "vColor", "vTexCoords", "texRect", "modelMat"]
     for attr in attributes:
-        program.attributes[attr] = GLuint(glGetAttribLocation(program.id, attr.cstring))
+        program.attributes[attr] = glGetAttribLocation(program.id, attr.cstring).GLuint
 
     for uni in uniforms:
         program.uniforms[uni] = glGetUniformLocation(program.id, uni.cstring)
@@ -96,7 +100,41 @@ proc rect*(x, y, w, h: GLfloat): GLRect =
     GLRect(x: x, y: y, w: w, h: h)
 
 proc instance*(texRect: GLRect; modelMat: Mat4x4f): GLinstance =
-    GLInstance(texRect: texRect, modelMat: modelMat) 
+    GLInstance(texRect: texRect, modelMat: modelMat)
+
+proc init(instSeq: var GLInstanceSeq; program: GLProgram) =
+    instSeq.maxLen = 1
+
+    glGenBuffers(1, instSeq.buffer.addr);
+
+    glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
+    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLRect)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
+    glEnableVertexAttribArray(program.attributes["texRect"])
+    glVertexAttribPointer(program.attributes["texRect"], 4, cGL_FLOAT, false, sizeof(GLRect).GLsizei, nil)
+    glVertexAttribDivisor(program.attributes["texRect"], 1)
+
+proc len(instSeq: GLInstanceSeq): int =
+    instSeq.instances.len()
+
+proc add(instSeq: var GLInstanceSeq; inst: GLInstance) =
+    instSeq.instances.add(inst)
+
+proc clear(instSeq: var GLInstanceSeq) =
+    instSeq.instances.setLen(0)
+
+proc resize(instSeq: var GLInstanceSeq) =
+    instSeq.maxLen *= 2
+    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLRect)).GLsizeiptr, instSeq.instances[0].texRect.addr, GL_DYNAMIC_DRAW)
+
+proc bufferData(instSeq: var GLInstanceSeq) =
+    glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
+    if instSeq.instances.len() > instSeq.maxLen:
+        echo "resizing"
+        instSeq.resize()
+    else:
+        echo cast[array[4, GLfloat]](instSeq.instances[0].texRect)
+        glBufferSubData(GL_ARRAY_BUFFER, 0, (instSeq.len() * sizeof(GLRect)).GLsizeiptr, instSeq.instances[0].texRect.addr)
+        #glBufferData(GL_ARRAY_BUFFER, (instSeq.len() * sizeof(GLRect)).GLsizeiptr, instSeq.instances[0].texRect.addr, GL_STATIC_DRAW)
 
 proc init*(image: var GLImage; path: string) =
     let bmp = loadBMP24(path)
@@ -107,23 +145,22 @@ proc init*(image: var GLImage; path: string) =
     glBindTexture(GL_TEXTURE_2D, image.texture)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT.GLint)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT.GLint)
-    #glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST.GLint)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST.GLint)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.GLint)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, image.size[0], image.size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, data.cstring)
-    #glGenerateMipmap(GL_TEXTURE_2D)
 
 proc init*(shape: var GLShape; program: GLProgram; vertices: seq[GLVertex]; indices: seq[GLIndex]) =
     shape.nIndices = indices.len().GLsizei
-
     shape.program = program
     
-    var vbo, ebo: GLuint
     glGenVertexArrays(1, shape.vao.addr)
+
+    var vbo, ebo: GLuint
     glGenBuffers(1, vbo.addr)
     glGenBuffers(1, ebo.addr)
 
     glBindVertexArray(shape.vao)
+
     glBindBuffer(GL_ARRAY_BUFFER, vbo)
     glBufferData(GL_ARRAY_BUFFER, (vertices.len() * sizeof(GLVertex)).GLsizeiptr, vertices[0].addr, GL_STATIC_DRAW)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo)
@@ -134,7 +171,17 @@ proc init*(shape: var GLShape; program: GLProgram; vertices: seq[GLVertex]; indi
     glVertexAttribPointer(program.attributes["vColor"], 3, cGL_FLOAT, false, sizeof(GLVertex).GLsizei, cast[pointer](sizeof(GLfloat) * 3))
     glEnableVertexAttribArray(program.attributes["vTexCoords"])
     glVertexAttribPointer(program.attributes["vTexCoords"], 2, cGL_FLOAT, false, sizeof(GLVertex).GLsizei, cast[pointer](sizeof(GLfloat) * 6))
-    glBindBuffer(GL_ARRAY_BUFFER, 0)
+
+func drawItemCmp(x, y: GLDrawItem): int =
+    if x.shape < y.shape:
+        return -1
+    elif x.shape > y.shape:
+        return 1
+    if x.image < y.image:
+        return -1
+    elif x.image > y.image:
+        return 1
+    return 0
 
 proc init*(renderer: var GLRenderer) =
     renderer.usedProgram = nil
@@ -183,8 +230,14 @@ proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: G
     var item: GLDrawItem
     item.shape = shape.addr
     item.image = image.addr
-    item.instance = instance
-    renderer.toDraw.add(item)
+    let searchPos = renderer.toDraw.binarySearch(item, drawItemCmp)
+    if searchPos == -1:
+        renderer.use(shape)
+        item.instances.init(renderer.usedProgram[])
+        item.instances.add(instance)
+        renderer.toDraw.add(item)
+    else:
+        renderer.toDraw[searchPos].instances.add(instance)
 
 # memories how they fade so fast
 #proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage) =
@@ -193,14 +246,8 @@ proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: G
 #    renderer.draw(shape, image, instance(fullRect, idMat))
 
 proc render*(renderer: var GLRenderer) =
-
-    func drawItemSort(x, y: GLDrawItem): int =
-        if x.shape < y.shape: return -1
-        if x.image < y.image: return -1
-        return 1
-
     if renderer.toDraw.len() == 0: return
-    renderer.toDraw.sort(drawItemSort)
+    renderer.toDraw.sort(drawItemCmp)
     var
         lastShape: ptr GLShape = nil
         lastImage: ptr GLImage = nil
@@ -211,6 +258,10 @@ proc render*(renderer: var GLRenderer) =
         if item.image != lastImage:
             renderer.use(item.image[]) # maybe lower down, idk
             lastImage = item.image
-        glUniform4fv(renderer.uniform("texRect"), 1.GLsizei, cast[ptr GLfloat](item.instance.texRect.addr))
-        glDrawElements(GL_TRIANGLES, item.shape[].nIndices * 3, GL_UNSIGNED_INT, nil)
-    renderer.toDraw.setLen(0)
+        #glUniform4fv(renderer.uniform("texRect"), 1.GLsizei, cast[ptr GLfloat](item.instance.texRect.addr))
+        let itemPtr = item.addr
+        itemPtr[].instances.bufferData()
+        glDrawElementsInstanced(GL_TRIANGLES, item.shape[].nIndices, GL_UNSIGNED_INT, nil, item.instances.len().GLsizei)
+        #glDrawElements(GL_TRIANGLES, item.shape[].nIndices, GL_UNSIGNED_INT, nil)
+        itemPtr[].instances.clear()
+    #renderer.toDraw.setLen(0)

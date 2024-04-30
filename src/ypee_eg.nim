@@ -42,7 +42,7 @@ proc init*(eg: var YpeeEg) =
         fShaderSrc = staticRead("shaders/ypee.fs")
         uniforms = @[
             "texSize",
-            "texRect",
+            #"texRect",
             "viewMat",
             "projMat",
         ]

@@ -1,14 +1,16 @@
 #version 330 core
-in vec3 vPos;
-in vec3 vColor;
-in vec2 vTexCoords;
-in mat4 modelMat;
+
+layout (location = 0) in vec3 vPos;
+layout (location = 1) in vec3 vColor;
+layout (location = 2) in vec2 vTexCoords;
+
+layout (location = 3) in vec4 texRect;
+layout (location = 4) in mat4 modelMat;
 
 out vec4 color;
 out vec2 texCoords;
 
 uniform vec2 texSize;
-uniform vec4 texRect;
 uniform mat4 viewMat;
 uniform mat4 projMat;
 
@@ -23,4 +25,5 @@ void main() {
     texRectF.w -= 2 * halfPixels.y;
     vec2 tTexCoords = vTexCoords * texRectF.zw / texSize;
     texCoords = texRectF.xy / texSize + tTexCoords;
+    texCoords = tTexCoords;
 }

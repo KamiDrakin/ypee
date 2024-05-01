@@ -31,9 +31,9 @@ type
         texture: GLTexture
         size: (GLsizei, GLsizei)
     GLShape* = object
-        nIndices: GLsizei
+        nVertices: GLsizei
         vao: GLuint
-        program: ptr GLProgram
+        program: GLProgram
     GLDrawItem = object
         shape: ptr GLShape
         image: ptr GLImage
@@ -169,22 +169,19 @@ proc init*(image: var GLImage; path: string) =
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.GLint)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, image.size[0], image.size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, data.cstring)
 
-proc init*(shape: var GLShape; program: GLProgram; vertices: seq[GLVertex]; indices: seq[GLIndex]) =
-    shape.nIndices = indices.len().GLsizei
-    shape.program = program.addr
+proc init*(shape: var GLShape; program: GLProgram; vertices: seq[GLVertex]) =
+    shape.nVertices = vertices.len().GLsizei
+    shape.program = program
     
     glGenVertexArrays(1, shape.vao.addr)
 
-    var vbo, ebo: GLuint
+    var vbo: GLuint
     glGenBuffers(1, vbo.addr)
-    glGenBuffers(1, ebo.addr)
 
     glBindVertexArray(shape.vao)
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo)
     glBufferData(GL_ARRAY_BUFFER, (vertices.len() * sizeof(GLVertex)).GLsizeiptr, vertices[0].addr, GL_STATIC_DRAW)
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo)
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, (vertices.len() * sizeof(GLIndex)).GLsizeiptr, indices[0].addr, GL_STATIC_DRAW)
 
     program.enableAttributes(0)
 
@@ -202,6 +199,7 @@ func drawItemCmp(x, y: GLDrawItem): int =
 proc init*(renderer: var GLRenderer) =
     renderer.usedProgram = nil
     assert gladLoadGL(glfw.getProcAddress)
+    glEnable(GL_DEPTH_TEST)
 
 proc addProgram*(renderer: var GLRenderer; key: uint; vShaderSrc, fShaderSrc: string) =
     var program: GLProgram
@@ -235,7 +233,7 @@ proc use(renderer: GLRenderer; image: GLImage) =
     glBindTexture(GL_TEXTURE_2D, image.texture)
 
 proc use(renderer: var GLRenderer; shape: GLShape) =
-    renderer.use(shape.program[])
+    renderer.use(shape.program)
     glBindVertexArray(shape.vao)
 
 proc setViewMat*(renderer: var GLRenderer; mat: Mat4x4f) =
@@ -265,6 +263,7 @@ proc render*(renderer: var GLRenderer) =
         lastShape: ptr GLShape = nil
         lastImage: ptr GLImage = nil
     for item in renderer.toDraw:
+        if item.instances.len() == 0: continue
         if item.shape != lastShape:
             renderer.use(item.shape[])
             lastShape = item.shape
@@ -273,5 +272,5 @@ proc render*(renderer: var GLRenderer) =
             lastImage = item.image
         let itemPtr = item.addr
         itemPtr[].instances.bufferData()
-        glDrawElementsInstanced(GL_TRIANGLES, item.shape[].nIndices * 3, GL_UNSIGNED_INT, nil, item.instances.len().GLsizei)
+        glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape[].nVertices, item.instances.len().GLsizei)
         itemPtr[].instances.clear()

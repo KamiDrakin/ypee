@@ -73,6 +73,7 @@ proc refreshProjection*(eg: var YpeeEg) =
                 width = eg.screenSize[0].float
                 height = eg.screenSize[1].float
             mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
+            #mat = perspective[float32](90.0, height / width, 0.1, 1000.0)
         of smAdjustWidth:
             discard # todo
         of smAdjustWidthHeight:

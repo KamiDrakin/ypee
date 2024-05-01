@@ -4,7 +4,7 @@ import ypee_eg
 import glm
 import glad/gl
 import glrenderer
-#import random
+import random
 
 proc main() =
     var eg: YpeeEg
@@ -13,8 +13,14 @@ proc main() =
     var
         testImage: GLImage
         testShape: GLShape
-    testImage.init("./textures/font.bmp")
-    testShape.init(eg.renderer.program(0), squareVertices, squareIndices)
+    testImage.init("./textures/ratprism.bmp")
+    testShape.init(eg.renderer.program(0), prismVertices)
+
+    let ratMat = mat4f()
+        .translate(128.0, 120.0, 0.0)
+        .scale(96.0, 96.0, 1.0)
+        .rotate(vec3f(0.0, 1.0, 0.0), rand(2.0) * PI)
+        .rotate(vec3f(1.0, 0.0, 0.0), rand(2.0) * PI)
 
     while eg.nextFrame():
         eg.processEvents()
@@ -32,12 +38,12 @@ proc main() =
         #    m1 = mat4f().translate(-1.0 + rand(2.0), -1.0 + rand(2.0), 0.0)
         #    m2 = mat4f().translate(-1.0 + rand(2.0), -1.0 + rand(2.0), 0.0)
         let
-            r1 = rect(32.0, 24.0, 16.0, 16.0)
-            r2 = rect(32.0, 32.0, 64.0, 32.0)
-            m1 = mat4f().translate(32.0, 32.0, 0.0).scale(64.0, 64.0, 1.0)
-            m2 = mat4f().translate(96.0, 96.0, 0.0).scale(64.0, 32.0, 1.0)
-        eg.renderer.draw(testShape, testImage, instance(r1, m1))
-        eg.renderer.draw(testShape, testImage, instance(r2, m2))
+            r1 = rect(0.0, 0.0, 768.0, 768.0)
+            #r2 = rect(32.0, 32.0, 64.0, 32.0)
+            #m1 = mat4f().translate(32.0, 32.0, 0.0).scale(64.0, 64.0, 1.0)
+            #m2 = mat4f().translate(96.0, 96.0, 0.0).scale(64.0, 32.0, 1.0)
+        eg.renderer.draw(testShape, testImage, instance(r1, ratMat))
+        #eg.renderer.draw(testShape, testImage, instance(r2, m2))
         eg.renderer.render()
     
     eg.destroy()

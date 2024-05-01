@@ -7,20 +7,16 @@ from glfw import getProcAddress
 import nimBMP
 
 import custom_utils
+import basic_shapes
+
+export basic_shapes
 
 type
-    GLVao = GLuint
     GLProgram = object
         id: GLuint
         attributes: Table[string, GLuint]
         uniforms: Table[string, GLint]
     GLTexture = GLuint
-    GLVertex* = object
-        x, y, z: GLfloat
-        r, g, b: GLfloat
-        u, v: GLfloat
-    GLIndex* = object
-        v1, v2, v3: GLuint
     GLRect* = object
         x, y, w, h: GLfloat
     GLInstance* = object
@@ -35,8 +31,8 @@ type
         size: (GLsizei, GLsizei)
     GLShape* = object
         nIndices: GLsizei
-        vao: GLVao
-        program: GLProgram
+        vao: GLuint
+        program: ptr GLProgram
     GLDrawItem = object
         shape: ptr GLShape
         image: ptr GLImage
@@ -45,7 +41,6 @@ type
         programs: Table[uint, GLProgram]
         usedProgram: ptr GLProgram
         toDraw: seq[GLDrawItem]
-
 proc init(program: var GLProgram; vShaderSrc, fShaderSrc: string; uniforms: seq[string]) =
 
     proc errorCheck(shader: GLuint) =
@@ -91,12 +86,6 @@ proc init(program: var GLProgram; vShaderSrc, fShaderSrc: string; uniforms: seq[
 
     glDeleteShader(vShader)
     glDeleteShader(fShader)
-
-proc vertex*(x, y, z, r, g, b, u, v: GLFloat): GLVertex =
-    GLVertex(x: x, y: y, z: z, r: r, g: g, b: b, u: u, v: v)
-
-proc index*(v1, v2, v3: GLuint): GLIndex =
-    GLIndex(v1: v1, v2: v2, v3: v3)
 
 proc rect*(x, y, w, h: GLfloat): GLRect =
     GLRect(x: x, y: y, w: w, h: h)
@@ -165,7 +154,7 @@ proc init*(image: var GLImage; path: string) =
 
 proc init*(shape: var GLShape; program: GLProgram; vertices: seq[GLVertex]; indices: seq[GLIndex]) =
     shape.nIndices = indices.len().GLsizei
-    shape.program = program
+    shape.program = program.addr
     
     glGenVertexArrays(1, shape.vao.addr)
 
@@ -227,7 +216,7 @@ proc use(renderer: GLRenderer; image: GLImage) =
     glBindTexture(GL_TEXTURE_2D, image.texture)
 
 proc use(renderer: var GLRenderer; shape: GLShape) =
-    renderer.use(shape.program)
+    renderer.use(shape.program[])
     glBindVertexArray(shape.vao)
 
 #proc useProgram(renderer: var GLRenderer; key: uint) =

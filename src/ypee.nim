@@ -33,9 +33,9 @@ proc main() =
         #    m2 = mat4f().translate(-1.0 + rand(2.0), -1.0 + rand(2.0), 0.0)
         let
             r1 = rect(32.0, 24.0, 16.0, 16.0)
-            r2 = rect(64.0, 64.0, 64.0, 64.0)
+            r2 = rect(32.0, 32.0, 64.0, 32.0)
             m1 = mat4f().translate(32.0, 32.0, 0.0).scale(64.0, 64.0, 1.0)
-            m2 = mat4f().translate(96.0, 96.0, 0.0).scale(64.0, 64.0, 1.0)
+            m2 = mat4f().translate(96.0, 96.0, 0.0).scale(64.0, 32.0, 1.0)
         eg.renderer.draw(testShape, testImage, instance(r1, m1))
         eg.renderer.draw(testShape, testImage, instance(r2, m2))
         eg.renderer.render()

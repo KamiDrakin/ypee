@@ -99,12 +99,7 @@ proc init*(eg: var YpeeEg, screenSize: (int, int) = defaultScreenSize) =
     const
         vShaderSrc = staticRead("shaders/ypee.vs")
         fShaderSrc = staticRead("shaders/ypee.fs")
-        uniforms = @[
-            "texSize",
-            "viewMat",
-            "projMat",
-        ]
-    eg.renderer.addProgram(prBase.uint, vShaderSrc, fShaderSrc, uniforms)
+    eg.renderer.addProgram(prBase.uint, vShaderSrc, fShaderSrc)
     eg.renderer.setViewMat(mat4f())
     eg.refreshProjection()
     

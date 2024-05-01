@@ -12,10 +12,11 @@ import basic_shapes
 export basic_shapes
 
 type
-    GLProgram = object
+    GLProgram* = object
         id: GLuint
-        attributes: Table[string, GLuint]
-        uniforms: Table[string, GLint]
+        vertAttributes: seq[(GLuint, GLsizei)]
+        instAttributes: seq[(GLuint, GLsizei)]
+        uniforms: Table[string, (GLint, GLsizei)]
     GLTexture = GLuint
     GLRect* = object
         x, y, w, h: GLfloat
@@ -41,7 +42,8 @@ type
         programs: Table[uint, GLProgram]
         usedProgram: ptr GLProgram
         toDraw: seq[GLDrawItem]
-proc init(program: var GLProgram; vShaderSrc, fShaderSrc: string; uniforms: seq[string]) =
+
+proc init*(program: var GLProgram; vShaderSrc, fShaderSrc: string) =
 
     proc errorCheck(shader: GLuint) =
         var
@@ -75,17 +77,48 @@ proc init(program: var GLProgram; vShaderSrc, fShaderSrc: string; uniforms: seq[
     glGetProgramiv(program.id, GL_LINK_STATUS, cast[ptr GLint](success.addr))
     assert success
 
-    const attributes = ["vPos", "vColor", "vTexCoords", "texRect", "modelMat"]
-    for attr in attributes:
-        let attrPos = glGetAttribLocation(program.id, attr.cstring)
-        assert attrPos >= 0
-        program.attributes[attr] = attrPos.GLuint
-
-    for uni in uniforms:
-        program.uniforms[uni] = glGetUniformLocation(program.id, uni.cstring)
-
     glDeleteShader(vShader)
     glDeleteShader(fShader)
+
+proc setAttributes*(program: var GLProgram; vertAttribs, instAttribs: seq[(string, int)]) =
+    for (aName, aSize) in vertAttribs:
+        let 
+            aSize = aSize.GLsizei
+            aLoc = glGetAttribLocation(program.id, aName.cstring)
+        assert aLoc >= 0
+        program.vertAttributes.add((aLoc.GLuint, aSize)) 
+
+    for (aName, aSize) in instAttribs:
+        let 
+            aSize = aSize.GLsizei
+            aLoc = glGetAttribLocation(program.id, aName.cstring)
+        assert aLoc >= 0
+        program.instAttributes.add((aLoc.GLuint, aSize))
+
+proc setUniforms*(program: var GLProgram; uniforms: seq[(string, int)]) =
+    for (uName, uSize) in uniforms:
+        let
+            uLoc = glGetUniformLocation(program.id, uName.cstring)
+        program.uniforms[uName] = (uLoc, uSize.GLsizei)
+
+proc enableAttributes(program: GLProgram; divisor: GLuint) =
+    let attributes = if divisor == 0: program.vertAttributes else: program.instAttributes
+    var
+        stride = 0
+        totalSize = 0
+    for (_, aSize) in attributes:
+        stride += aSize
+    for (aLoc, aSize) in attributes:
+        let aSizeSqrt = sqrt(aSize.float).GLsizei
+        let repeat = if aSizeSqrt > 2: aSize div aSizeSqrt else: 0 # works only for even matrices i guess
+        let aSize: GLsizei = if repeat > 0: aSizeSqrt else: aSize
+        for i in countup(0, repeat):
+            let i = i.GLuint
+            glEnableVertexAttribArray(aLoc + i)
+            glVertexAttribPointer(aLoc + i, aSize, cGL_FLOAT, false, (sizeof(GLFloat) * stride).GLsizei, cast[pointer](sizeof(GLfloat) * totalSize))
+            if divisor > 0:
+                glVertexAttribDivisor(aLoc + i, divisor)
+            totalSize += aSize
 
 proc rect*(x, y, w, h: GLfloat): GLRect =
     GLRect(x: x, y: y, w: w, h: h)
@@ -101,23 +134,7 @@ proc init(instSeq: var GLInstanceSeq; program: GLProgram; initLen: int) =
     glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
     glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLInstance)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
 
-    glEnableVertexAttribArray(program.attributes["texRect"])
-    glVertexAttribPointer(program.attributes["texRect"], 4, cGL_FLOAT, false, sizeof(GLInstance).GLsizei, cast[pointer](0))
-
-    glEnableVertexAttribArray(program.attributes["modelMat"])
-    glVertexAttribPointer(program.attributes["modelMat"], 4, cGL_FLOAT, false, sizeof(GLInstance).GLsizei, cast[pointer](sizeof(Vec4f)))
-    glEnableVertexAttribArray(program.attributes["modelMat"] + 1)
-    glVertexAttribPointer(program.attributes["modelMat"] + 1, 4, cGL_FLOAT, false, sizeof(GLInstance).GLsizei, cast[pointer](sizeof(Vec4f) * 2))
-    glEnableVertexAttribArray(program.attributes["modelMat"] + 2)
-    glVertexAttribPointer(program.attributes["modelMat"] + 2, 4, cGL_FLOAT, false, sizeof(GLInstance).GLsizei, cast[pointer](sizeof(Vec4f) * 3))
-    glEnableVertexAttribArray(program.attributes["modelMat"] + 3)
-    glVertexAttribPointer(program.attributes["modelMat"] + 3, 4, cGL_FLOAT, false, sizeof(GLInstance).GLsizei, cast[pointer](sizeof(Vec4f) * 4))
-    
-    glVertexAttribDivisor(program.attributes["texRect"], 1)
-    glVertexAttribDivisor(program.attributes["modelMat"], 1)
-    glVertexAttribDivisor(program.attributes["modelMat"] + 1, 1)
-    glVertexAttribDivisor(program.attributes["modelMat"] + 2, 1)
-    glVertexAttribDivisor(program.attributes["modelMat"] + 3, 1)
+    program.enableAttributes(1)
 
 proc len(instSeq: GLInstanceSeq): int =
     instSeq.instances.len()
@@ -168,12 +185,8 @@ proc init*(shape: var GLShape; program: GLProgram; vertices: seq[GLVertex]; indi
     glBufferData(GL_ARRAY_BUFFER, (vertices.len() * sizeof(GLVertex)).GLsizeiptr, vertices[0].addr, GL_STATIC_DRAW)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo)
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, (vertices.len() * sizeof(GLIndex)).GLsizeiptr, indices[0].addr, GL_STATIC_DRAW)
-    glEnableVertexAttribArray(program.attributes["vPos"])
-    glVertexAttribPointer(program.attributes["vPos"], 3, cGL_FLOAT, false, sizeof(GLVertex).GLsizei, nil)
-    glEnableVertexAttribArray(program.attributes["vColor"])
-    glVertexAttribPointer(program.attributes["vColor"], 3, cGL_FLOAT, false, sizeof(GLVertex).GLsizei, cast[pointer](sizeof(GLfloat) * 3))
-    glEnableVertexAttribArray(program.attributes["vTexCoords"])
-    glVertexAttribPointer(program.attributes["vTexCoords"], 2, cGL_FLOAT, false, sizeof(GLVertex).GLsizei, cast[pointer](sizeof(GLfloat) * 6))
+
+    program.enableAttributes(0)
 
 func drawItemCmp(x, y: GLDrawItem): int =
     if x.shape < y.shape:
@@ -190,9 +203,14 @@ proc init*(renderer: var GLRenderer) =
     renderer.usedProgram = nil
     assert gladLoadGL(glfw.getProcAddress)
 
-proc addProgram*(renderer: var GLRenderer; key: uint; vShaderSrc, fShaderSrc: string; uniforms: seq[string]) =
+proc addProgram*(renderer: var GLRenderer; key: uint; vShaderSrc, fShaderSrc: string) =
     var program: GLProgram
-    program.init(vShaderSrc, fShaderSrc, uniforms)
+    program.init(vShaderSrc, fShaderSrc)
+    program.setAttributes(
+        @[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)],
+        @[("texRect", 4), ("modelMat", 16)]
+    ) # move this
+    program.setUniforms(@[("texSize", 2), ("viewMat", 16), ("projMat", 16)]) # move this?
     renderer.programs[key] = program
     if renderer.usedProgram == nil:
         renderer.usedProgram = renderer.programs[key].addr
@@ -201,7 +219,7 @@ proc addProgram*(renderer: var GLRenderer; key: uint; vShaderSrc, fShaderSrc: st
 proc program*(renderer: GLRenderer; key: uint): GLProgram =
     return renderer.programs[key]
 
-proc uniform(renderer: GLRenderer; name: string): GLint =
+proc uniform(renderer: GLRenderer; name: string): (GLint, GLsizei) =
     return renderer.usedProgram[].uniforms[name]
 
 proc use(renderer: var GLRenderer; program: GLProgram) =
@@ -211,7 +229,8 @@ proc use(renderer: var GLRenderer; program: GLProgram) =
     
 proc use(renderer: GLRenderer; image: GLImage) =
     let imageSize = [image.size[0].GLfloat, image.size[1].GLfloat]
-    glUniform2fv(renderer.uniform("texSize"), 1.GLsizei, cast[ptr GLfloat](imageSize[0].addr))
+    let (uLoc, _) = renderer.uniform("texSize")
+    glUniform2fv(uLoc, 1.GLsizei, cast[ptr GLfloat](imageSize[0].addr))
     glActiveTexture(GL_TEXTURE0)
     glBindTexture(GL_TEXTURE_2D, image.texture)
 
@@ -219,16 +238,13 @@ proc use(renderer: var GLRenderer; shape: GLShape) =
     renderer.use(shape.program[])
     glBindVertexArray(shape.vao)
 
-#proc useProgram(renderer: var GLRenderer; key: uint) =
-#    renderer.useProgram(renderer.programs[key])
-
 proc setViewMat*(renderer: var GLRenderer; mat: Mat4x4f) =
     let mat = cast[Mat4x4[GLfloat]](mat)
-    glUniformMatrix4fv(renderer.uniform("viewMat"), 1.GLsizei, false, cast[ptr GLfloat](mat.addr))
+    glUniformMatrix4fv(renderer.uniform("viewMat")[0], 1.GLsizei, false, cast[ptr GLfloat](mat.addr))
 
 proc setProjMat*(renderer: var GLRenderer; mat: Mat4x4f) =
     let mat = cast[Mat4x4[GLfloat]](mat)
-    glUniformMatrix4fv(renderer.uniform("projMat"), 1.GLsizei, false, cast[ptr GLfloat](mat.addr))
+    glUniformMatrix4fv(renderer.uniform("projMat")[0], 1.GLsizei, false, cast[ptr GLfloat](mat.addr))
 
 proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: GLInstance) =
     var item: GLDrawItem
@@ -242,12 +258,6 @@ proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: G
         renderer.toDraw.add(item)
     else:
         renderer.toDraw[searchPos].instances.add(instance)
-
-# memories how they fade so fast
-#proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage) =
-#    let fullRect = rect(0.0, 0.0, image.size[0].GLfloat, image.size[1].GLfloat)
-#    const idMat = mat4f()
-#    renderer.draw(shape, image, instance(fullRect, idMat))
 
 proc render*(renderer: var GLRenderer) =
     renderer.toDraw.sort(drawItemCmp)

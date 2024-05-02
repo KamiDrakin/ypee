@@ -17,7 +17,10 @@ uniform mat4 projMat;
 void main() {
     gl_Position = projMat * viewMat * modelMat * vec4(vPos, 1.0);
     color = vec4(vColor, 1.0);
-    vec4 texRectF = vec4(texRect.x, texSize.y - texRect.y - texRect.w, texRect.z, texRect.w);
+    vec4 texRectF = vec4(0.0, 0.0, texSize);
+    if (texRect.z > 0.0 && texRect.z > 0.0) {
+        texRectF = vec4(texRect.x, texSize.y - texRect.y - texRect.w, texRect.z, texRect.w);
+    }
     vec2 halfPixels = vec2(0.5, 0.5) / texSize;
     texRectF.x += halfPixels.x;
     texRectF.y += halfPixels.y;

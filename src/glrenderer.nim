@@ -123,8 +123,12 @@ proc enableAttributes(program: GLProgram; divisor: GLuint) =
 proc rect*(x, y, w, h: GLfloat): GLRect =
     GLRect(x: x, y: y, w: w, h: h)
 
-proc instance*(texRect: GLRect; modelMat: Mat4x4f): GLinstance =
+proc instance*(modelMat: Mat4x4f; texRect: GLRect): GLinstance =
     GLInstance(texRect: texRect, modelMat: modelMat)
+
+proc instance*(modelMat: Mat4x4f): GLinstance =
+    const noRect = rect(0, 0, 0, 0)
+    GLInstance(texRect: noRect, modelMat: modelMat)
 
 proc init(instSeq: var GLInstanceSeq; program: GLProgram; initLen: int) =
     instSeq.maxLen = initLen

@@ -72,8 +72,8 @@ proc refreshProjection*(eg: var YpeeEg) =
             let
                 width = eg.screenSize[0].float
                 height = eg.screenSize[1].float
-            mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
-            #mat = perspective[float32](90.0, height / width, 0.1, 1000.0)
+            #mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
+            mat = perspective[float32](radians(60.0), width / height, 0.1, 1000.0)
         of smAdjustWidth:
             discard # todo
         of smAdjustWidthHeight:
@@ -88,7 +88,7 @@ proc init*(eg: var YpeeEg, screenSize: (int, int) = defaultScreenSize) =
 
     var cfg = DefaultOpenglWindowConfig
     cfg.size = screenSize * defaultScale
-    cfg.title = "YPEE"
+    cfg.title = "PRESS SPACE TO RAT PRISM"
     cfg.resizable = true
     cfg.version = glfw.glv33
     cfg.forwardCompat = true
@@ -101,8 +101,8 @@ proc init*(eg: var YpeeEg, screenSize: (int, int) = defaultScreenSize) =
         vShaderSrc = staticRead("shaders/ypee.vs")
         fShaderSrc = staticRead("shaders/ypee.fs")
     eg.renderer.addProgram(prBase.uint, vShaderSrc, fShaderSrc)
-    eg.renderer.setViewMat(mat4f())
-    #eg.renderer.setViewMat(mat4f().translate(-128.0, -120.0, -100.0))
+    #eg.renderer.setViewMat(mat4f())
+    eg.renderer.setViewMat(mat4f().translate(-128.0, -128.0, -256.0))
     eg.refreshProjection()
     
     eg.window.registerWindowCallbacks()

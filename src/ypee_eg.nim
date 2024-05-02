@@ -22,7 +22,7 @@ type
         elapsed*: float
     Sprite* = object
     YpeeEg* = object
-        window: glfw.Window
+        window*: glfw.Window
         renderer*: GLRenderer
         frameCounter*: FrameCounter
         delta*: float
@@ -102,6 +102,7 @@ proc init*(eg: var YpeeEg, screenSize: (int, int) = defaultScreenSize) =
         fShaderSrc = staticRead("shaders/ypee.fs")
     eg.renderer.addProgram(prBase.uint, vShaderSrc, fShaderSrc)
     eg.renderer.setViewMat(mat4f())
+    #eg.renderer.setViewMat(mat4f().translate(-128.0, -120.0, -100.0))
     eg.refreshProjection()
     
     eg.window.registerWindowCallbacks()

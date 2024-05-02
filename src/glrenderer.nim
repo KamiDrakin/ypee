@@ -5,6 +5,7 @@ import glm
 import glad/gl
 from glfw import getProcAddress
 import nimBMP
+import std/streams
 
 import custom_utils
 import basic_shapes
@@ -160,9 +161,12 @@ proc bufferData(instSeq: var GLInstanceSeq) =
     else:
         glBufferSubData(GL_ARRAY_BUFFER, 0, (instSeq.len() * sizeof(GLInstance)).GLsizeiptr, instSeq.instances[0].addr)
 
-proc init*(image: var GLImage; path: string) =
-    let bmp = loadBMP24(path)
-    let data = bmp.data.bmpDataFlip(bmp.width)
+proc init*(image: var GLImage; bmpStr: string) =
+    let rBmp = decodeBMP(newStringStream(bmpStr))
+    assert rBmp != nil
+    let
+        bmp = convert[string](rBmp, 24)
+        data = bmp.data.bmpDataFlip(bmp.width)
     assert bmp.width > 0 and bmp.height > 0
     image.size = (bmp.width.GLsizei, bmp.height.GLsizei)
     glGenTextures(1, image.texture.addr)

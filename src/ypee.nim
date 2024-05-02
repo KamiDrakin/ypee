@@ -1,5 +1,4 @@
 import ypee_eg
-#import nimdeps
 
 # temporary
 import glm
@@ -8,7 +7,7 @@ import glrenderer
 import random
 import glfw
 
-#setupDepFile("../textures/rat.bmp")
+const testFile = staticRead("../textures/rat.bmp")
 
 proc main() =
     var eg: YpeeEg
@@ -17,7 +16,7 @@ proc main() =
     var
         testImage: GLImage
         testShape: GLShape
-    testImage.init("../textures/rat.bmp")
+    testImage.init(testFile)
     testShape.init(eg.renderer.program(0), cubeVertices)
 
     randomize()

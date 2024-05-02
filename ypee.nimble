@@ -13,5 +13,4 @@ bin           = @["ypee"]
 requires "nim >= 2.0.4"
 requires "glfw"
 requires "glm"
-requires "nimdeps"
 requires "nimbmp"

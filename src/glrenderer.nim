@@ -39,10 +39,18 @@ type
         shape: ptr GLShape
         image: ptr GLImage
         instances: GLInstanceSeq
+    GLFrame = object
+        shape: GLShape
+        fbo: GLuint
+        texture: GLuint
+        size: (GLsizei, GLsizei)
     GLRenderer* = object
         programs: Table[uint, GLProgram]
         usedProgram: ptr GLProgram
         toDraw: seq[GLDrawItem]
+        uniformVals: Table[string, ptr GLfloat]
+        clearColor*: (GLfloat, GLfloat, GLfloat)
+        frame*: GLFrame
 
 proc init*(program: var GLProgram; vShaderSrc, fShaderSrc: string) =
 
@@ -173,9 +181,11 @@ proc init*(image: var GLImage; bmpStr: string) =
     glBindTexture(GL_TEXTURE_2D, image.texture)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT.GLint)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT.GLint)
+    #glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST.GLint)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST.GLint)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.GLint)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, image.size[0], image.size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, data.cstring)
+    #glGenerateMipmap(GL_TEXTURE_2D)
 
 proc init*(shape: var GLShape; program: GLProgram; vertices: seq[GLVertex]) =
     shape.nVertices = vertices.len().GLsizei
@@ -204,10 +214,42 @@ func drawItemCmp(x, y: GLDrawItem): int =
         return 1
     return 0
 
+proc init*(frame: var GLFrame; size: (GLsizei, GLsizei)) =
+    const
+        vShaderSrc = staticRead("shaders/frame.vs")
+        fShaderSrc = staticRead("shaders/frame.fs")
+    var program: GLProgram
+    program.init(vShaderSrc, fShaderSrc)
+    program.setAttributes(@[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)], @[])
+    program.setUniforms(@[("frameScale", 2)])
+    frame.shape.init(program, frameVertices)
+
+    frame.size = size
+
+    glGenFramebuffers(1, frame.fbo.addr)
+    glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo)
+
+    glGenTextures(1, frame.texture.addr)
+    glBindTexture(GL_TEXTURE_2D, frame.texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, size[0], size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, nil)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST.GLint)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.GLint)
+    glBindTexture(GL_TEXTURE_2D, 0)
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frame.texture, 0)
+
+    var rbo: GLuint
+    glGenRenderbuffers(1, rbo.addr);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo); 
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, size[0], size[1])  
+    glBindRenderbuffer(GL_RENDERBUFFER, 0)
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo)
+
+    assert glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
+    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+
 proc init*(renderer: var GLRenderer) =
     renderer.usedProgram = nil
     assert gladLoadGL(glfw.getProcAddress)
-    glEnable(GL_DEPTH_TEST)
 
 proc addProgram*(renderer: var GLRenderer; key: uint; vShaderSrc, fShaderSrc: string) =
     var program: GLProgram
@@ -225,32 +267,47 @@ proc addProgram*(renderer: var GLRenderer; key: uint; vShaderSrc, fShaderSrc: st
 proc program*(renderer: GLRenderer; key: uint): GLProgram =
     return renderer.programs[key]
 
-proc uniform(renderer: GLRenderer; name: string): (GLint, GLsizei) =
-    return renderer.usedProgram[].uniforms[name]
+proc setUniform*(renderer: var GLRenderer; name: string; valPtr: ptr GLfloat) =
+    if not renderer.uniformVals.hasKey(name):
+        renderer.uniformVals[name] = valPtr
+        return
+    let oldPtr = renderer.uniformVals[name]
+    if oldPtr != nil:
+        dealloc(oldPtr)
+    renderer.uniformVals[name] = valPtr
 
 proc use(renderer: var GLRenderer; program: GLProgram) =
-    if program.id == renderer.usedProgram[].id: return
+    if renderer.usedProgram != nil and program.id == renderer.usedProgram[].id: return
     renderer.usedProgram = program.addr
     glUseProgram(program.id)
     
-proc use(renderer: GLRenderer; image: GLImage) =
-    let imageSize = [image.size[0].GLfloat, image.size[1].GLfloat]
-    let (uLoc, _) = renderer.uniform("texSize")
-    glUniform2fv(uLoc, 1.GLsizei, cast[ptr GLfloat](imageSize[0].addr))
-    glActiveTexture(GL_TEXTURE0)
+proc use(renderer: var GLRenderer; image: GLImage) =
+    let imageSize = cast[ptr Vec2f](alloc(sizeof(Vec2f)))
+    imageSize[] = vec2f(image.size[0].GLfloat, image.size[1].GLfloat)
+    renderer.setUniform("texSize", cast[ptr GLfloat](imageSize))
+    #glActiveTexture(GL_TEXTURE0)
     glBindTexture(GL_TEXTURE_2D, image.texture)
 
 proc use(renderer: var GLRenderer; shape: GLShape) =
     renderer.use(shape.program)
     glBindVertexArray(shape.vao)
 
-proc setViewMat*(renderer: var GLRenderer; mat: Mat4x4f) =
-    let mat = cast[Mat4x4[GLfloat]](mat)
-    glUniformMatrix4fv(renderer.uniform("viewMat")[0], 1.GLsizei, false, cast[ptr GLfloat](mat.addr))
+proc applyUniforms(renderer: var GLRenderer) =
+    let uniforms = renderer.usedProgram[].uniforms
+    for k, (uLoc, uSize) in uniforms:
+        let val = renderer.uniformVals[k]
+        case uSize
+            of 1: glUniform1fv(uLoc, 1.GLsizei, val)
+            of 2: glUniform2fv(uLoc, 1.GLsizei, val)
+            of 3: glUniform3fv(uLoc, 1.GLsizei, val)
+            of 4: glUniform4fv(uLoc, 1.GLsizei, val)
+            of 16: glUniformMatrix4fv(uLoc, 1.GLsizei, false, val)
+            else: discard
 
-proc setProjMat*(renderer: var GLRenderer; mat: Mat4x4f) =
-    let mat = cast[Mat4x4[GLfloat]](mat)
-    glUniformMatrix4fv(renderer.uniform("projMat")[0], 1.GLsizei, false, cast[ptr GLfloat](mat.addr))
+    #let viewMat = cast[Mat4x4[GLfloat]](renderer.viewMat)
+    #glUniformMatrix4fv(renderer.uniform("viewMat")[0], 1.GLsizei, false, cast[ptr GLfloat](viewMat.addr))
+    #let projMat = cast[Mat4x4[GLfloat]](renderer.projMat)
+    #glUniformMatrix4fv(renderer.uniform("projMat")[0], 1.GLsizei, false, cast[ptr GLfloat](projMat.addr))
 
 proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: GLInstance) =
     var item: GLDrawItem
@@ -266,6 +323,9 @@ proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: G
         renderer.toDraw[searchPos].instances.add(instance)
 
 proc render*(renderer: var GLRenderer) =
+    glClearColor(renderer.clearColor[0], renderer.clearColor[1], renderer.clearColor[2], 1.0)
+    glClear((GL_COLOR_BUFFER_BIT.uint + GL_DEPTH_BUFFER_BIT.uint).GLbitfield)
+    glEnable(GL_DEPTH_TEST)
     renderer.toDraw.sort(drawItemCmp)
     var
         lastShape: ptr GLShape = nil
@@ -278,7 +338,31 @@ proc render*(renderer: var GLRenderer) =
         if item.image != lastImage:
             renderer.use(item.image[])
             lastImage = item.image
+        renderer.applyUniforms()
         let itemPtr = item.addr
         itemPtr[].instances.bufferData()
         glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape[].nVertices, item.instances.len().GLsizei)
         itemPtr[].instances.clear()
+
+proc renderFramed*(renderer: var GLRenderer; windowSize: (GLsizei, GLsizei)) =
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer.frame.fbo)
+    glViewport(0, 0, renderer.frame.size[0], renderer.frame.size[1])
+    renderer.render()
+    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+    glViewport(0, 0, windowSize[0], windowSize[1])
+    glClearColor(0.0, 0.0, 0.0, 1.0)
+    glClear(GL_COLOR_BUFFER_BIT)
+    glDisable(GL_DEPTH_TEST)
+    renderer.use(renderer.frame.shape)
+    #glActiveTexture(GL_TEXTURE0)
+    glBindTexture(GL_TEXTURE_2D, renderer.frame.texture)
+    let
+        scalePtr = cast[ptr Vec2f](alloc(sizeof(Vec2f)))
+        xRatio = renderer.frame.size[0].GLfloat / windowSize[0].GLfloat
+        yRatio = renderer.frame.size[1].GLfloat / windowSize[1].GLfloat
+        higherRatio = max(xRatio, yRatio)
+    scalePtr[] = vec2f(xRatio, yRatio) / higherRatio
+    renderer.setUniform("frameScale", cast[ptr GLfloat](scalePtr))
+    renderer.applyUniforms()
+    glDrawArrays(GL_TRIANGLES, 0, renderer.frame.shape.nVertices)
+    renderer.usedProgram = nil

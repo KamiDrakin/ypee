@@ -30,7 +30,7 @@ type
         screenMode: ScreenMode
 
 const
-    defaultScreenSize = (256, 240)
+    defaultScreenSize = (256, 224)
     defaultScreenMode = smFixed
     defaultScale = 3
 
@@ -60,31 +60,36 @@ proc getFps*(fc: var FrameCounter): float =
     fc.init()
         
 proc refreshProjection*(eg: var YpeeEg) =
-    var mat: Mat4x4f
+    var mat = cast[ptr Mat4x4f](alloc(sizeof(Mat4x4f)))
     case eg.screenMode
         of smNormal:
             let
                 winSize = eg.window.size
                 width = winSize[0].float
                 height = winSize[1].float
-            mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
+            mat[] = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
         of smFixed:
             let
                 width = eg.screenSize[0].float
                 height = eg.screenSize[1].float
-            mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
+            #echo eg.screenSize
+            mat[] = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
             #mat = perspective[float32](90.0, height / width, 0.1, 1000.0)
         of smAdjustWidth:
             discard # todo
         of smAdjustWidthHeight:
             discard # todo
-    eg.renderer.setProjMat(mat)
+    eg.renderer.setUniform("projMat", cast[ptr float32](mat))
 
-proc init*(eg: var YpeeEg, screenSize: (int, int) = defaultScreenSize) =
+proc init*(
+    eg: var YpeeEg,
+    screenSize: (int, int) = defaultScreenSize,
+    screenMode: ScreenMode = defaultScreenMode
+) =
     glfw.initialize()
 
     eg.screenSize = screenSize
-    eg.screenMode = defaultScreenMode
+    eg.screenMode = screenMode
 
     var cfg = DefaultOpenglWindowConfig
     cfg.size = screenSize * defaultScale
@@ -101,7 +106,9 @@ proc init*(eg: var YpeeEg, screenSize: (int, int) = defaultScreenSize) =
         vShaderSrc = staticRead("shaders/ypee.vs")
         fShaderSrc = staticRead("shaders/ypee.fs")
     eg.renderer.addProgram(prBase.uint, vShaderSrc, fShaderSrc)
-    eg.renderer.setViewMat(mat4f())
+    let viewMat = cast[ptr Mat4x4f](alloc(sizeof(Mat4x4f)))
+    viewMat[] = mat4f()
+    eg.renderer.setUniform("viewMat", cast[ptr float32](viewMat))
     #eg.renderer.setViewMat(mat4f().translate(-128.0, -120.0, -100.0))
     eg.refreshProjection()
     
@@ -109,6 +116,9 @@ proc init*(eg: var YpeeEg, screenSize: (int, int) = defaultScreenSize) =
     glfw.swapInterval(1)
 
     eg.frameCounter.init()
+
+    eg.renderer.clearColor = (0.1, 0.0, 0.1)
+    eg.renderer.frame.init(screenSize)
 
 proc destroy*(eg: var YpeeEg) =
     eg.window.destroy()

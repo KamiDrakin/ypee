@@ -13,6 +13,16 @@ proc vertex*(x, y, z, u, v: GLfloat): GLvertex =
     vertex(x, y, z, 1.0, 1.0, 1.0, u, v)
 
 const
+    frameVertices* = @[
+        vertex(-1.0,  1.0,  0.0,   0.0, 1.0), #0
+        vertex( 1.0,  1.0,  0.0,   1.0, 1.0), #1
+        vertex(-1.0, -1.0,  0.0,   0.0, 0.0), #3
+        
+        vertex( 1.0,  1.0,  0.0,   1.0, 1.0), #1
+        vertex( 1.0, -1.0,  0.0,   1.0, 0.0), #2
+        vertex(-1.0, -1.0,  0.0,   0.0, 0.0), #3
+    ]
+
     squareVertices* = @[
         vertex(-0.5,  0.5,  0.0,   0.0, 1.0), #0
         vertex( 0.5,  0.5,  0.0,   1.0, 1.0), #1

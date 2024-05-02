@@ -2,26 +2,23 @@ import ypee_eg
 
 # temporary
 import glm
-import glad/gl
 import glrenderer
 import random
 import glfw
 
-const testFile = staticRead("../textures/rat.bmp")
-
 proc main() =
     var eg: YpeeEg
-    eg.init()
+    eg.init((256, 224), smFixed)
 
     var
         testImage: GLImage
         testShape: GLShape
-    testImage.init(testFile)
+    testImage.init(staticRead("../textures/rat.bmp").static)
     testShape.init(eg.renderer.program(0), cubeVertices)
 
     randomize()
     var mat = mat4f()
-        .translate(128.0, 120.0, 0.0)
+        .translate(128.0, 112.0, 0.0)
         .scale(96.0, 96.0, 1.0)
         #.rotateX(rand(2.0) * PI)
         #.rotateY(rand(2.0) * PI)
@@ -35,9 +32,6 @@ proc main() =
 
         if isKeyDown(eg.window, keySpace):
             mat.rotateInplX(eg.delta * PI / 5)
-
-        glClearColor(0.1, 0.0, 0.1, 1.0)
-        glClear((GL_COLOR_BUFFER_BIT.uint + GL_DEPTH_BUFFER_BIT.uint).GLbitfield)
 
         mat.rotateInplY(eg.delta * PI / 5)
             #.rotateZ(eg.delta * PI / 4.1)
@@ -55,7 +49,8 @@ proc main() =
             #m2 = mat4f().translate(96.0, 96.0, 0.0).scale(64.0, 32.0, 1.0)
         eg.renderer.draw(testShape, testImage, instance(mat))
         #eg.renderer.draw(testShape, testImage, instance(r2, m2))
-        eg.renderer.render()
+        eg.renderer.renderFramed(eg.window.size())
+        #eg.renderer.render()
     
     eg.destroy()
 

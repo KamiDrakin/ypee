@@ -8,8 +8,8 @@ import custom_utils
 import glrenderer
 
 type
-    Programs* = enum
-        prBase
+    ProgramIndex = enum
+        piBase
     ScreenMode* = enum
         smNoFrame
         smFixed
@@ -20,7 +20,10 @@ type
         prevTime: float
         frameTimer: float
         elapsed*: float
-    Sprite* = object
+    SpriteSheet* = object
+        shape: GLShape
+        image: GLImage
+        size: (uint, uint)
     YpeeEg* = object
         window*: glfw.Window
         renderer*: GLRenderer
@@ -67,12 +70,12 @@ proc refreshProjection*(eg: var YpeeEg) =
                 winSize = eg.window.size()
                 width = winSize[0].float
                 height = winSize[1].float
-            mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
+            mat = ortho[float32](0.0, width, 0.0, height, 100.0, -100.0)
         of smFixed:
             let
                 width = eg.screenSize[0].float
                 height = eg.screenSize[1].float
-            mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
+            mat = ortho[float32](0.0, width, 0.0, height, 100.0, -100.0)
             #mat = perspective[float32](90.0, height / width, 0.1, 1000.0)
         of smStretch:
             discard # todo
@@ -82,7 +85,7 @@ proc refreshProjection*(eg: var YpeeEg) =
             let
                 width = eg.screenSize[0].float
                 height = eg.screenSize[1].float
-            mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
+            mat = ortho[float32](0.0, width, 0.0, height, 100.0, -100.0)
             eg.renderer.frame.resize(eg.screenSize)
     eg.renderer.setUniform("projMat", mat)
 
@@ -110,7 +113,14 @@ proc init*(
     const
         vShaderSrc = staticRead("shaders/ypee.vs")
         fShaderSrc = staticRead("shaders/ypee.fs")
-    eg.renderer.addProgram(prBase.uint, vShaderSrc, fShaderSrc)
+    var progBase: GLProgram
+    progBase.init(vShaderSrc, fShaderSrc)
+    progBase.setAttributes(
+        @[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)],
+        @[("texRect", 4), ("modelMat", 16)]
+    )
+    progBase.setUniforms(@[("texSize", 2), ("viewMat", 16), ("projMat", 16)])
+    eg.renderer.addProgram(piBase.uint, progBase)
     eg.renderer.setUniform("viewMat", mat4f())
     #eg.renderer.setViewMat(mat4f().translate(-128.0, -120.0, -100.0))
     eg.refreshProjection()

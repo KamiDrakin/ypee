@@ -13,8 +13,8 @@ proc main() =
     var
         testImage: GLImage
         testShape: GLShape
-    testImage.init(staticRead("../textures/rat.bmp").static)
-    testShape.init(eg.renderer.program(0), cubeVertices)
+    testImage.init(staticRead("../textures/ratprism.bmp").static)
+    testShape.init(eg.renderer.program(0), prismVertices)
 
     randomize()
     var mat = mat4f()
@@ -30,11 +30,18 @@ proc main() =
         if eg.frameCounter.elapsed >= 5.0:
             echo eg.frameCounter.getFps()
 
-        if isKeyDown(eg.window, keySpace):
+        if isKeyDown(eg.window, keyW):
+            mat.rotateInplX(-eg.delta * PI / 5)
+        if isKeyDown(eg.window, keyS):
             mat.rotateInplX(eg.delta * PI / 5)
-
-        mat.rotateInplY(eg.delta * PI / 5)
-            #.rotateZ(eg.delta * PI / 4.1)
+        if isKeyDown(eg.window, keyA):
+            mat.rotateInplY(-eg.delta * PI / 5)
+        if isKeyDown(eg.window, keyD):
+            mat.rotateInplY(eg.delta * PI / 5)
+        if isKeyDown(eg.window, keySpace):
+            mat.translateInpl(0.0, 0.0, eg.delta)
+        if isKeyDown(eg.window, keyLeftShift):
+            mat.translateInpl(0.0, 0.0, -eg.delta)
     
         #for i in countup(0, 100):
         #let

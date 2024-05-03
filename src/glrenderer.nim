@@ -254,15 +254,10 @@ proc init*(frame: var GLFrame; size: (GLsizei, GLsizei)) =
 proc init*(renderer: var GLRenderer) =
     renderer.usedProgram = nil
     assert gladLoadGL(glfw.getProcAddress)
+    glEnable(GL_CULL_FACE)
+    glFrontFace(GL_CW)
 
-proc addProgram*(renderer: var GLRenderer; key: uint; vShaderSrc, fShaderSrc: string) =
-    var program: GLProgram
-    program.init(vShaderSrc, fShaderSrc)
-    program.setAttributes(
-        @[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)],
-        @[("texRect", 4), ("modelMat", 16)]
-    ) # move this
-    program.setUniforms(@[("texSize", 2), ("viewMat", 16), ("projMat", 16)]) # move this?
+proc addProgram*(renderer: var GLRenderer; key: uint; program: GLProgram) =
     renderer.programs[key] = program
     if renderer.usedProgram == nil:
         renderer.usedProgram = renderer.programs[key].addr

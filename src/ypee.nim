@@ -10,19 +10,20 @@ proc main() =
     var eg: YpeeEg
     eg.init((256, 224), smAdjustWidth)
 
-    var
-        testImage: GLImage
-        testShape: GLShape
-    testImage.init(staticRead("../textures/ratprism.bmp").static)
-    testShape.init(eg.renderer.program(0), prismVertices)
+    const testBmp = staticRead("../textures/temp.bmp")
+    var testSheet: SpriteSheet
+    testSheet.init((16u, 16u), eg.renderer.program(0), testBmp)
+    #testImage.init(staticRead("../textures/ratprism.bmp").static)
+    #testShape.init(eg.renderer.program(0), prismVertices)
 
     randomize()
-    var mat = mat4f()
-        .translate(128.0, 112.0, 0.0)
-        .scale(96.0, 96.0, 1.0)
+    const unchangedMat = mat4f()
+        .translate(128.0, 112.0, -100.0)
+        .scale(16.0, 16.0, 1.0)
         #.rotateX(rand(2.0) * PI)
         #.rotateY(rand(2.0) * PI)
         #.rotateZ(rand(2.0) * PI)
+    var mat = unchangedMat.translate(1.0, 0.0, 0.0)
 
     while eg.nextFrame():
         eg.processEvents()
@@ -31,17 +32,17 @@ proc main() =
             echo eg.frameCounter.getFps()
 
         if isKeyDown(eg.window, keyW):
-            mat.rotateInplX(-eg.delta * PI / 5)
-        if isKeyDown(eg.window, keyS):
             mat.rotateInplX(eg.delta * PI / 5)
+        if isKeyDown(eg.window, keyS):
+            mat.rotateInplX(-eg.delta * PI / 5)
         if isKeyDown(eg.window, keyA):
-            mat.rotateInplY(-eg.delta * PI / 5)
-        if isKeyDown(eg.window, keyD):
             mat.rotateInplY(eg.delta * PI / 5)
+        if isKeyDown(eg.window, keyD):
+            mat.rotateInplY(-eg.delta * PI / 5)
         if isKeyDown(eg.window, keySpace):
-            mat.translateInpl(0.0, 0.0, eg.delta)
+            mat.translateInpl(0.0, 0.0, -eg.delta * 5)
         if isKeyDown(eg.window, keyLeftShift):
-            mat.translateInpl(0.0, 0.0, -eg.delta)
+            mat.translateInpl(0.0, 0.0, eg.delta * 5)
     
         #for i in countup(0, 100):
         #let
@@ -54,7 +55,8 @@ proc main() =
             #r2 = rect(32.0, 32.0, 64.0, 32.0)
             #m1 = mat4f().translate(32.0, 32.0, 0.0).scale(64.0, 64.0, 1.0)
             #m2 = mat4f().translate(96.0, 96.0, 0.0).scale(64.0, 32.0, 1.0)
-        eg.renderer.draw(testShape, testImage, instance(mat))
+        eg.renderer.draw(testSheet.shape, testSheet.image, instance(mat, testSheet.at(0, 0)))
+        eg.renderer.draw(testSheet.shape, testSheet.image, instance(unchangedMat.translate(-1.0, 0.0, 0.0), testSheet.at(3, 0)))
         #eg.renderer.draw(testShape, testImage, instance(r2, m2))
         eg.renderer.renderFramed(eg.window.size())
         #eg.renderer.render()

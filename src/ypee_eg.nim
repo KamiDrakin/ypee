@@ -15,15 +15,15 @@ type
         smFixed
         smStretch
         smAdjustWidth
+    SpriteSheet* = object
+        shape*: GLShape
+        image*: GLImage
+        size: (uint, uint)
     FrameCounter = object
         frameCounts: seq[int]
         prevTime: float
         frameTimer: float
         elapsed*: float
-    SpriteSheet* = object
-        shape: GLShape
-        image: GLImage
-        size: (uint, uint)
     YpeeEg* = object
         window*: glfw.Window
         renderer*: GLRenderer
@@ -31,11 +31,25 @@ type
         delta*: float
         screenSize: (int, int)
         screenMode: ScreenMode
+        projectionCalc: proc(width, height: float32): Mat4x4f
 
 const
     defaultScreenSize = (256, 224)
     defaultScreenMode = smFixed
     defaultScale = 3
+
+proc init*(sheet: var SpriteSheet; size: (uint, uint); program: GLProgram; bmpStr: string) =
+    sheet.shape.init(program, squareVertices)
+    sheet.image.init(bmpStr)
+    sheet.size = size
+
+proc at*(sheet: SpriteSheet; x, y: int): GLRect =
+    let
+        x = x.float
+        y = y.float
+        w = sheet.size[0].float
+        h = sheet.size[1].float
+    rect(x * w, y * h, w, h)
 
 proc init(fc: var FrameCounter) =
     fc.frameCounts = @[0]
@@ -76,7 +90,7 @@ proc refreshProjection*(eg: var YpeeEg) =
                 width = eg.screenSize[0].float
                 height = eg.screenSize[1].float
             mat = ortho[float32](0.0, width, 0.0, height, 100.0, -100.0)
-            #mat = perspective[float32](90.0, height / width, 0.1, 1000.0)
+            mat = perspective[float32](90.0, height / width, 0.1, 1000.0)
         of smStretch:
             discard # todo
         of smAdjustWidth:
@@ -85,19 +99,22 @@ proc refreshProjection*(eg: var YpeeEg) =
             let
                 width = eg.screenSize[0].float
                 height = eg.screenSize[1].float
-            mat = ortho[float32](0.0, width, 0.0, height, 100.0, -100.0)
+            mat = eg.projectionCalc(width, height)
             eg.renderer.frame.resize(eg.screenSize)
     eg.renderer.setUniform("projMat", mat)
 
 proc init*(
     eg: var YpeeEg,
     screenSize: (int, int) = defaultScreenSize,
-    screenMode: ScreenMode = defaultScreenMode
+    screenMode: ScreenMode = defaultScreenMode,
 ) =
     glfw.initialize()
 
     eg.screenSize = screenSize
     eg.screenMode = screenMode
+    eg.projectionCalc =
+        proc(width, height: float32): Mat4x4f = ortho[float32](0.0, width, 0.0, height, -1000.0, 1000.0)
+        #proc(width, height: float32): Mat4x4f = perspective[float32](90.0, height / width, 0.1, 1000.0)
 
     var cfg = DefaultOpenglWindowConfig
     cfg.size = screenSize * defaultScale
@@ -122,7 +139,7 @@ proc init*(
     progBase.setUniforms(@[("texSize", 2), ("viewMat", 16), ("projMat", 16)])
     eg.renderer.addProgram(piBase.uint, progBase)
     eg.renderer.setUniform("viewMat", mat4f())
-    #eg.renderer.setViewMat(mat4f().translate(-128.0, -120.0, -100.0))
+    #eg.renderer.setUniform("viewMat", mat4f().translate(-128.0, -120.0, 50.0))
     eg.refreshProjection()
     
     eg.window.registerWindowCallbacks()

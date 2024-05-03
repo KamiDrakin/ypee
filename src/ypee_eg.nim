@@ -1,5 +1,3 @@
-import std/sequtils
-
 import glm
 import glfw
 
@@ -24,7 +22,7 @@ type
         rot: Vec3f
         viewMat: Mat4x4f
     FrameCounter = object
-        frameCounts: seq[int]
+        frameCount: int
         prevTime: float
         frameTimer: float
         elapsed*: float
@@ -56,12 +54,12 @@ proc at*(sheet: SpriteSheet; x, y: int): GLRect =
     rect(x * w, y * h, w, h)
 
 proc init(fc: var FrameCounter) =
-    fc.frameCounts = @[0]
+    fc.frameCount = 0
     fc.frameTimer = 0.0
     fc.elapsed = 0.0
 
 proc tick(fc: var FrameCounter): float =
-    fc.frameCounts[fc.frameCounts.len() - 1] += 1
+    fc.frameCount += 1
     let
         time = glfw.getTime()
         delta = time - fc.prevTime
@@ -70,22 +68,20 @@ proc tick(fc: var FrameCounter): float =
     if fc.frameTimer >= 1.0:
         fc.frameTimer -= 1.0
         fc.elapsed += 1.0
-        fc.frameCounts.add(0)
-    if fc.elapsed >= 100.0:
-        fc.init()
     return delta
 
 proc getFps*(fc: var FrameCounter): float =
-    let frameSum = fc.frameCounts.foldl(a + b)
-    result = frameSum.float / fc.elapsed
+    result = fc.frameCount.float / fc.elapsed
     fc.init()
         
 proc refreshProjection*(eg: var YpeeEg) =
     var mat: Mat4x4f
+    let winSize = eg.window.size()
+    if winSize[0] <= 0 or winSize[1] <= 0:
+        return
     case eg.screenMode
         of smNoFrame:
             let
-                winSize = eg.window.size()
                 width = winSize[0].float
                 height = winSize[1].float
             mat = ortho[float32](0.0, width, 0.0, height, 100.0, -100.0)

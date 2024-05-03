@@ -305,11 +305,6 @@ proc applyUniforms(renderer: var GLRenderer) =
             of 16: glUniformMatrix4fv(uLoc, 1.GLsizei, false, val)
             else: discard
 
-    #let viewMat = cast[Mat4x4[GLfloat]](renderer.viewMat)
-    #glUniformMatrix4fv(renderer.uniform("viewMat")[0], 1.GLsizei, false, cast[ptr GLfloat](viewMat.addr))
-    #let projMat = cast[Mat4x4[GLfloat]](renderer.projMat)
-    #glUniformMatrix4fv(renderer.uniform("projMat")[0], 1.GLsizei, false, cast[ptr GLfloat](projMat.addr))
-
 proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: GLInstance) =
     var item: GLDrawItem
     item.shape = shape.addr

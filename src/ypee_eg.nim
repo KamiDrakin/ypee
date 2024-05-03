@@ -19,6 +19,10 @@ type
         shape*: GLShape
         image*: GLImage
         size: (uint, uint)
+    Camera* = object
+        pos: Vec3f
+        rot: Vec3f
+        viewMat: Mat4x4f
     FrameCounter = object
         frameCounts: seq[int]
         prevTime: float

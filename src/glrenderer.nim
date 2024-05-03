@@ -42,6 +42,7 @@ type
     GLFrame = object
         shape: GLShape
         fbo: GLuint
+        rbo: GLuint
         texture: GLuint
         size: (GLsizei, GLsizei)
     GLRenderer* = object
@@ -214,6 +215,26 @@ func drawItemCmp(x, y: GLDrawItem): int =
         return 1
     return 0
 
+proc resize*(frame: var GLFrame; size: (GLsizei, GLsizei)) =
+    frame.size = size
+
+    glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo)
+
+    glBindTexture(GL_TEXTURE_2D, frame.texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, size[0], size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, nil)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST.GLint)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.GLint)
+    glBindTexture(GL_TEXTURE_2D, 0)
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frame.texture, 0)
+
+    glBindRenderbuffer(GL_RENDERBUFFER, frame.rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, size[0], size[1])  
+    glBindRenderbuffer(GL_RENDERBUFFER, 0)
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, frame.rbo)
+
+    assert glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
+    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+
 proc init*(frame: var GLFrame; size: (GLsizei, GLsizei)) =
     const
         vShaderSrc = staticRead("shaders/frame.vs")
@@ -224,28 +245,11 @@ proc init*(frame: var GLFrame; size: (GLsizei, GLsizei)) =
     program.setUniforms(@[("frameScale", 2)])
     frame.shape.init(program, frameVertices)
 
-    frame.size = size
-
     glGenFramebuffers(1, frame.fbo.addr)
-    glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo)
-
     glGenTextures(1, frame.texture.addr)
-    glBindTexture(GL_TEXTURE_2D, frame.texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, size[0], size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, nil)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST.GLint)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.GLint)
-    glBindTexture(GL_TEXTURE_2D, 0)
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frame.texture, 0)
+    glGenRenderbuffers(1, frame.rbo.addr)
 
-    var rbo: GLuint
-    glGenRenderbuffers(1, rbo.addr);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo); 
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, size[0], size[1])  
-    glBindRenderbuffer(GL_RENDERBUFFER, 0)
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo)
-
-    assert glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
-    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+    frame.resize(size)        
 
 proc init*(renderer: var GLRenderer) =
     renderer.usedProgram = nil
@@ -267,14 +271,17 @@ proc addProgram*(renderer: var GLRenderer; key: uint; vShaderSrc, fShaderSrc: st
 proc program*(renderer: GLRenderer; key: uint): GLProgram =
     return renderer.programs[key]
 
-proc setUniform*(renderer: var GLRenderer; name: string; valPtr: ptr GLfloat) =
+proc setUniform*[T](renderer: var GLRenderer; name: string; val: T) =
+    let valPtr = cast[ptr T](alloc(sizeof(T)))
+    valPtr[] = val
+    let valFPtr = cast[ptr GLfloat](valPtr)
     if not renderer.uniformVals.hasKey(name):
-        renderer.uniformVals[name] = valPtr
+        renderer.uniformVals[name] = valFPtr
         return
     let oldPtr = renderer.uniformVals[name]
     if oldPtr != nil:
         dealloc(oldPtr)
-    renderer.uniformVals[name] = valPtr
+    renderer.uniformVals[name] = valFPtr
 
 proc use(renderer: var GLRenderer; program: GLProgram) =
     if renderer.usedProgram != nil and program.id == renderer.usedProgram[].id: return
@@ -282,8 +289,7 @@ proc use(renderer: var GLRenderer; program: GLProgram) =
     glUseProgram(program.id)
     
 proc use(renderer: var GLRenderer; image: GLImage) =
-    let imageSize = cast[ptr Vec2f](alloc(sizeof(Vec2f)))
-    imageSize[] = vec2f(image.size[0].GLfloat, image.size[1].GLfloat)
+    let imageSize = vec2f(image.size[0].GLfloat, image.size[1].GLfloat)
     renderer.setUniform("texSize", cast[ptr GLfloat](imageSize))
     #glActiveTexture(GL_TEXTURE0)
     glBindTexture(GL_TEXTURE_2D, image.texture)
@@ -357,12 +363,11 @@ proc renderFramed*(renderer: var GLRenderer; windowSize: (GLsizei, GLsizei)) =
     #glActiveTexture(GL_TEXTURE0)
     glBindTexture(GL_TEXTURE_2D, renderer.frame.texture)
     let
-        scalePtr = cast[ptr Vec2f](alloc(sizeof(Vec2f)))
         xRatio = renderer.frame.size[0].GLfloat / windowSize[0].GLfloat
         yRatio = renderer.frame.size[1].GLfloat / windowSize[1].GLfloat
         higherRatio = max(xRatio, yRatio)
-    scalePtr[] = vec2f(xRatio, yRatio) / higherRatio
-    renderer.setUniform("frameScale", cast[ptr GLfloat](scalePtr))
+        scale = vec2f(xRatio, yRatio) / higherRatio
+    renderer.setUniform("frameScale", scale)
     renderer.applyUniforms()
     glDrawArrays(GL_TRIANGLES, 0, renderer.frame.shape.nVertices)
     renderer.usedProgram = nil

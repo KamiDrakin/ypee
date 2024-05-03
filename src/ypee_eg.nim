@@ -11,10 +11,10 @@ type
     Programs* = enum
         prBase
     ScreenMode* = enum
-        smNormal
+        smNoFrame
         smFixed
+        smStretch
         smAdjustWidth
-        smAdjustWidthHeight
     FrameCounter = object
         frameCounts: seq[int]
         prevTime: float
@@ -60,26 +60,31 @@ proc getFps*(fc: var FrameCounter): float =
     fc.init()
         
 proc refreshProjection*(eg: var YpeeEg) =
-    var mat = cast[ptr Mat4x4f](alloc(sizeof(Mat4x4f)))
+    var mat: Mat4x4f
     case eg.screenMode
-        of smNormal:
+        of smNoFrame:
             let
-                winSize = eg.window.size
+                winSize = eg.window.size()
                 width = winSize[0].float
                 height = winSize[1].float
-            mat[] = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
+            mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
         of smFixed:
             let
                 width = eg.screenSize[0].float
                 height = eg.screenSize[1].float
-            #echo eg.screenSize
-            mat[] = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
+            mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
             #mat = perspective[float32](90.0, height / width, 0.1, 1000.0)
+        of smStretch:
+            discard # todo
         of smAdjustWidth:
-            discard # todo
-        of smAdjustWidthHeight:
-            discard # todo
-    eg.renderer.setUniform("projMat", cast[ptr float32](mat))
+            let winSize = eg.window.size()
+            eg.screenSize[0] = eg.screenSize[1] * winSize[0] div winSize[1]
+            let
+                width = eg.screenSize[0].float
+                height = eg.screenSize[1].float
+            mat = ortho[float32](0.0, width, 0.0, height, -100.0, 100.0)
+            eg.renderer.frame.resize(eg.screenSize)
+    eg.renderer.setUniform("projMat", mat)
 
 proc init*(
     eg: var YpeeEg,
@@ -106,9 +111,7 @@ proc init*(
         vShaderSrc = staticRead("shaders/ypee.vs")
         fShaderSrc = staticRead("shaders/ypee.fs")
     eg.renderer.addProgram(prBase.uint, vShaderSrc, fShaderSrc)
-    let viewMat = cast[ptr Mat4x4f](alloc(sizeof(Mat4x4f)))
-    viewMat[] = mat4f()
-    eg.renderer.setUniform("viewMat", cast[ptr float32](viewMat))
+    eg.renderer.setUniform("viewMat", mat4f())
     #eg.renderer.setViewMat(mat4f().translate(-128.0, -120.0, -100.0))
     eg.refreshProjection()
     

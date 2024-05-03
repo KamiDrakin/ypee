@@ -8,7 +8,7 @@ import glfw
 
 proc main() =
     var eg: YpeeEg
-    eg.init((256, 224), smFixed)
+    eg.init((256, 224), smAdjustWidth)
 
     var
         testImage: GLImage

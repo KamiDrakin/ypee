@@ -4,8 +4,9 @@ layout (location = 0) in vec3 vPos;
 layout (location = 1) in vec3 vColor;
 layout (location = 2) in vec2 vTexCoords;
 
-layout (location = 3) in vec4 texRect;
-layout (location = 4) in mat4 modelMat;
+layout (location = 3) in vec3 iColor;
+layout (location = 4) in vec4 texRect;
+layout (location = 5) in mat4 modelMat;
 
 out vec4 color;
 out vec2 texCoords;
@@ -16,7 +17,7 @@ uniform mat4 projMat;
 
 void main() {
     gl_Position = projMat * viewMat * modelMat * vec4(vPos, 1.0);
-    color = vec4(vColor, 1.0);
+    color = vec4(vColor * iColor, 1.0);
     vec4 texRectF = vec4(0.0, 0.0, texSize);
     if (texRect.z > 0.0 && texRect.z > 0.0) {
         texRectF = vec4(texRect.x, texSize.y - texRect.y - texRect.w, texRect.z, texRect.w);

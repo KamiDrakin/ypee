@@ -36,7 +36,20 @@ proc main() =
         if moveVec.length2() > 0.0:
             pPos += moveVec.normalize() * moveSpeed * eg.delta
 
-        eg.renderer.draw(testSheet.shape, testSheet.image, instance(mat.translate(pPos).scale(16.0, 16.0, 1.0), testSheet.at(1, 0)))
+        #var testInstances: seq[float32]
+        #testInstances.add(cast[array[3, float32]](vec3f(1.0, 0.2, 0.6)))
+        #testInstances.add(cast[array[4, float32]](testSheet.at(1, 0)))
+        #testInstances.add(cast[array[16, float32]](mat.translate(pPos).scale(16.0, 16.0, 1.0)))
+        #echo testInstances
+        var instance = instance(vec3f(1.0, 0.4, 0.7)) +
+            testSheet.at(1, 0) +
+            mat.translate(pPos).scale(16.0, 16.0, 1.0)
+        eg.renderer.draw(testSheet.shape, testSheet.image, instance)
+        instance =
+            instance(vec3f(0.0, 0.6, 0.3)) +
+            instance(testSheet.at(1, 0)) +
+            instance(mat.translate(pPos).scale(32.0, 32.0, 1.0))
+        eg.renderer.draw(testSheet.shape, testSheet.image, instance)
         eg.renderer.renderFramed(eg.window.size())
         #eg.renderer.render()
     

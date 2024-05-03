@@ -17,15 +17,15 @@ type
         id: GLuint
         vertAttributes: seq[(GLuint, GLsizei)]
         instAttributes: seq[(GLuint, GLsizei)]
+        instSize: GLsizei
         uniforms: Table[string, (GLint, GLsizei)]
     GLTexture = GLuint
     GLRect* = object
         x, y, w, h: GLfloat
-    GLInstance* = object
-        texRect: GLRect
-        modelMat: Mat4x4f
+    GLInstance = seq[float32]
     GLInstanceSeq = object
-        instances: seq[GLInstance]
+        instances: seq[GLfloat]
+        instSize: GLsizei
         buffer: GLuint
         maxLen: int
     GLImage* = object
@@ -98,12 +98,14 @@ proc setAttributes*(program: var GLProgram; vertAttribs, instAttribs: seq[(strin
         assert aLoc >= 0
         program.vertAttributes.add((aLoc.GLuint, aSize)) 
 
+    program.instSize = 0
     for (aName, aSize) in instAttribs:
         let 
             aSize = aSize.GLsizei
             aLoc = glGetAttribLocation(program.id, aName.cstring)
         assert aLoc >= 0
         program.instAttributes.add((aLoc.GLuint, aSize))
+        program.instSize += aSize
 
 proc setUniforms*(program: var GLProgram; uniforms: seq[(string, int)]) =
     for (uName, uSize) in uniforms:
@@ -133,27 +135,31 @@ proc enableAttributes(program: GLProgram; divisor: GLuint) =
 proc rect*(x, y, w, h: GLfloat): GLRect =
     GLRect(x: x, y: y, w: w, h: h)
 
-proc instance*(modelMat: Mat4x4f; texRect: GLRect): GLinstance =
-    GLInstance(texRect: texRect, modelMat: modelMat)
+proc instance*[T](data: T): GLInstance =
+    result.add(cast[array[sizeof(T) div sizeof(GLfloat), GLfloat]](data))
+    
+proc `+`*(inst1, inst2: GLInstance): GLInstance =
+    result = inst1
+    result.add(inst2)
 
-proc instance*(modelMat: Mat4x4f): GLinstance =
-    const noRect = rect(0, 0, 0, 0)
-    GLInstance(texRect: noRect, modelMat: modelMat)
+proc `+`*[T](inst: GLInstance; data: T): GLInstance =
+    result = inst + instance(data)
 
 proc init(instSeq: var GLInstanceSeq; program: GLProgram; initLen: int) =
+    instSeq.instSize = program.instSize
     instSeq.maxLen = initLen
 
     glGenBuffers(1, instSeq.buffer.addr);
 
     glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
-    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLInstance)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
+    glBufferData(GL_ARRAY_BUFFER, (instSeq.instances.len() * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
 
     program.enableAttributes(1)
 
 proc len(instSeq: GLInstanceSeq): int =
-    instSeq.instances.len()
+    instSeq.instances.len() div instSeq.instSize
 
-proc add(instSeq: var GLInstanceSeq; inst: GLInstance) =
+proc add(instSeq: var GLInstanceSeq; inst: seq[GLfloat]) =
     instSeq.instances.add(inst)
 
 proc clear(instSeq: var GLInstanceSeq) =
@@ -161,14 +167,14 @@ proc clear(instSeq: var GLInstanceSeq) =
 
 proc resize(instSeq: var GLInstanceSeq) =
     instSeq.maxLen *= 2
-    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLInstance)).GLsizeiptr, instSeq.instances[0].addr, GL_DYNAMIC_DRAW)
+    glBufferData(GL_ARRAY_BUFFER, (instSeq.instances.len() * sizeof(GLfloat)).GLsizeiptr, instSeq.instances[0].addr, GL_DYNAMIC_DRAW)
 
 proc bufferData(instSeq: var GLInstanceSeq) =
     glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
     if instSeq.instances.len() > instSeq.maxLen:
         instSeq.resize()
     else:
-        glBufferSubData(GL_ARRAY_BUFFER, 0, (instSeq.len() * sizeof(GLInstance)).GLsizeiptr, instSeq.instances[0].addr)
+        glBufferSubData(GL_ARRAY_BUFFER, 0, (instSeq.instances.len() * sizeof(GLfloat)).GLsizeiptr, instSeq.instances[0].addr)
 
 proc init*(image: var GLImage; bmpStr: string) =
     let rBmp = decodeBMP(newStringStream(bmpStr))

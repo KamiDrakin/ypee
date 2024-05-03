@@ -138,7 +138,7 @@ proc init*(
     progBase.init(vShaderSrc, fShaderSrc)
     progBase.setAttributes(
         @[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)],
-        @[("texRect", 4), ("modelMat", 16)]
+        @[("iColor", 3), ("texRect", 4), ("modelMat", 16)]
     )
     progBase.setUniforms(@[("texSize", 2), ("viewMat", 16), ("projMat", 16)])
     eg.renderer.addProgram(piBase.uint, progBase)

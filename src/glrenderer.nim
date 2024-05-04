@@ -121,9 +121,10 @@ proc enableAttributes(program: GLProgram; divisor: GLuint) =
     for (_, aSize) in attributes:
         stride += aSize
     for (aLoc, aSize) in attributes:
-        let aSizeSqrt = sqrt(aSize.float).GLsizei
-        let repeat = if aSizeSqrt > 2: aSize div aSizeSqrt else: 0 # works only for even matrices i guess
-        let aSize: GLsizei = if repeat > 0: aSizeSqrt else: aSize
+        let
+            aSizeSqrt = sqrt(aSize.float).GLsizei
+            repeat = if aSizeSqrt > 2: aSize div aSizeSqrt else: 0 # works only for even matrices i guess
+            aSize: GLsizei = if repeat > 0: aSizeSqrt else: aSize
         for i in countup(0, repeat):
             let i = i.GLuint
             glEnableVertexAttribArray(aLoc + i)
@@ -260,6 +261,8 @@ proc init*(frame: var GLFrame; size: (GLsizei, GLsizei)) =
 proc init*(renderer: var GLRenderer) =
     renderer.usedProgram = nil
     assert gladLoadGL(glfw.getProcAddress)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
     glEnable(GL_CULL_FACE)
     glFrontFace(GL_CW)
 

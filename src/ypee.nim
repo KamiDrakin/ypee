@@ -9,7 +9,7 @@ proc main() =
     var eg: YpeeEg
     eg.init((256, 224), smAdjustWidth)
 
-    const testBmp = staticRead("../textures/temp.bmp")
+    const testBmp = staticRead("../textures/champions.bmp")
     var testSheet: SpriteSheet
     testSheet.init((16u, 16u), eg.renderer.program(0), testBmp)
 
@@ -36,14 +36,10 @@ proc main() =
         if moveVec.length2() > 0.0:
             pPos += moveVec.normalize() * moveSpeed * eg.delta
             
-        var instance = instance(vec3f(1.0, 0.4, 0.7)) +
+        #eg.renderer.setUniform("viewMat", mat4f().translate(-pPos + vec3f(128.0, 112.0, 0.0)))
+        let instance = instance(vec4f(1.0, 1.0, 1.0, 0.4)) +
             testSheet.at(1, 0) +
             mat.translate(pPos).scale(16.0, 16.0, 1.0)
-        eg.renderer.draw(testSheet.shape, testSheet.image, instance)
-        instance =
-            instance(vec3f(0.0, 0.6, 0.3)) +
-            instance(testSheet.at(1, 0)) +
-            instance(mat.translate(pPos).scale(32.0, 32.0, 1.0))
         eg.renderer.draw(testSheet.shape, testSheet.image, instance)
         eg.renderer.renderFramed(eg.window.size())
         #eg.renderer.render()

@@ -2,8 +2,7 @@ import std/tables
 import std/algorithm
 
 import glm
-import glad/gl
-from glfw import getProcAddress
+import opengl
 import nimBMP
 import std/streams
 
@@ -222,7 +221,9 @@ func drawItemCmp(x, y: GLDrawItem): int =
         return 1
     return 0
 
-proc resize*(frame: var GLFrame; size: (GLsizei, GLsizei)) =
+proc resize*(frame: var GLFrame; size: (int, int)) =
+    if frame.fbo == 0: return
+    let size = (size[0].GLsizei, size[1].GLsizei)
     frame.size = size
 
     glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo)
@@ -242,7 +243,7 @@ proc resize*(frame: var GLFrame; size: (GLsizei, GLsizei)) =
     assert glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
-proc init*(frame: var GLFrame; size: (GLsizei, GLsizei)) =
+proc init*(frame: var GLFrame; size: (int, int)) =
     const
         vShaderSrc = staticRead("shaders/frame.vs")
         fShaderSrc = staticRead("shaders/frame.fs")
@@ -260,7 +261,7 @@ proc init*(frame: var GLFrame; size: (GLsizei, GLsizei)) =
 
 proc init*(renderer: var GLRenderer) =
     renderer.usedProgram = nil
-    assert gladLoadGL(glfw.getProcAddress)
+    loadExtensions()
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
     glEnable(GL_CULL_FACE)
@@ -329,7 +330,7 @@ proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: G
 
 proc render*(renderer: var GLRenderer) =
     glClearColor(renderer.clearColor[0], renderer.clearColor[1], renderer.clearColor[2], 1.0)
-    glClear((GL_COLOR_BUFFER_BIT.uint + GL_DEPTH_BUFFER_BIT.uint).GLbitfield)
+    glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
     glEnable(GL_DEPTH_TEST)
     renderer.toDraw.sort(drawItemCmp)
     var
@@ -349,7 +350,8 @@ proc render*(renderer: var GLRenderer) =
         glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape[].nVertices, item.instances.len().GLsizei)
         itemPtr[].instances.clear()
 
-proc renderFramed*(renderer: var GLRenderer; windowSize: (GLsizei, GLsizei)) =
+proc renderFramed*(renderer: var GLRenderer; windowSize: (int, int)) =
+    let windowSize = (windowSize[0].GLsizei, windowSize[1].GLsizei)
     glBindFramebuffer(GL_FRAMEBUFFER, renderer.frame.fbo)
     glViewport(0, 0, renderer.frame.size[0], renderer.frame.size[1])
     renderer.render()

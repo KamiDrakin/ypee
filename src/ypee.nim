@@ -3,7 +3,6 @@ import ypee_eg
 # temporary
 import glm
 import glrenderer
-import glfw
 
 proc main() =
     var eg: YpeeEg
@@ -25,23 +24,23 @@ proc main() =
 
         const moveSpeed = 64.0
         var moveVec = vec3f(0.0)
-        if isKeyDown(eg.window, keyDown):
+        if eg.inputs[inKeyDown]:
             moveVec.y -= 1.0
-        if isKeyDown(eg.window, keyUp):
+        if eg.inputs[inKeyUp]:
             moveVec.y += 1.0
-        if isKeyDown(eg.window, keyLeft):
+        if eg.inputs[inKeyLeft]:
             moveVec.x -= 1.0
-        if isKeyDown(eg.window, keyRight):
+        if eg.inputs[inKeyRight]:
             moveVec.x += 1.0
         if moveVec.length2() > 0.0:
-            pPos += moveVec.normalize() * moveSpeed * eg.delta
+           pPos += moveVec.normalize() * moveSpeed * eg.delta
             
         #eg.renderer.setUniform("viewMat", mat4f().translate(-pPos + vec3f(128.0, 112.0, 0.0)))
         let instance = instance(vec4f(1.0, 1.0, 1.0, 0.4)) +
             testSheet.at(1, 0) +
             mat.translate(pPos).scale(16.0, 16.0, 1.0)
         eg.renderer.draw(testSheet.shape, testSheet.image, instance)
-        eg.renderer.renderFramed(eg.window.size())
+        eg.renderer.renderFramed(eg.winSize)
         #eg.renderer.render()
     
     eg.destroy()

@@ -1,9 +1,10 @@
 import glm
-import glfw
+import sdl2
 
-import event_procs
-import custom_utils
+#import custom_utils
 import glrenderer
+
+export sdl2
 
 type
     ProgramIndex = enum
@@ -26,14 +27,23 @@ type
         prevTime: float
         frameTimer: float
         elapsed*: float
+    Input* = enum
+        inKeyUp
+        inKeyDown
+        inKeyLeft
+        inKeyRight
+        inNone
     YpeeEg* = object
-        window*: glfw.Window
+        running: bool
+        window*: WindowPtr
+        winSize*: (int, int)
+        screenSize*: (int, int)
+        screenMode: ScreenMode
+        projectionCalc: proc(width, height: float32): Mat4x4f
         renderer*: GLRenderer
         frameCounter*: FrameCounter
         delta*: float
-        screenSize: (int, int)
-        screenMode: ScreenMode
-        projectionCalc: proc(width, height: float32): Mat4x4f
+        inputs*: array[Input, bool]
 
 const
     defaultScreenSize = (256, 224)
@@ -61,7 +71,7 @@ proc init(fc: var FrameCounter) =
 proc tick(fc: var FrameCounter): float =
     fc.frameCount += 1
     let
-        time = glfw.getTime()
+        time = sdl2.getTicks().float / 1000.0
         delta = time - fc.prevTime
     fc.frameTimer += delta
     fc.prevTime = time
@@ -73,12 +83,20 @@ proc tick(fc: var FrameCounter): float =
 proc getFps*(fc: var FrameCounter): float =
     result = fc.frameCount.float / fc.elapsed
     fc.init()
+
+proc toInput(key: Scancode): Input =
+    case key
+        of SDL_SCANCODE_UP: inKeyUp
+        of SDL_SCANCODE_DOWN: inKeyDown
+        of SDL_SCANCODE_LEFT: inKeyLeft
+        of SDL_SCANCODE_RIGHT: inKeyRight
+        else: inNone
         
-proc refreshProjection*(eg: var YpeeEg) =
+proc refreshProjection*(eg: var YpeeEg; winSize: (int, int)) =
     var mat: Mat4x4f
-    let winSize = eg.window.size()
     if winSize[0] <= 0 or winSize[1] <= 0:
         return
+    eg.winSize = winSize
     case eg.screenMode
         of smNoFrame:
             let
@@ -94,7 +112,6 @@ proc refreshProjection*(eg: var YpeeEg) =
         of smStretch:
             discard # todo
         of smAdjustWidth:
-            let winSize = eg.window.size()
             eg.screenSize[0] = eg.screenSize[1] * winSize[0] div winSize[1]
             let
                 width = eg.screenSize[0].float
@@ -108,23 +125,24 @@ proc init*(
     screenSize: (int, int) = defaultScreenSize,
     screenMode: ScreenMode = defaultScreenMode,
 ) =
-    glfw.initialize()
-
+    eg.running = true
     eg.screenSize = screenSize
     eg.screenMode = screenMode
     eg.projectionCalc =
         proc(width, height: float32): Mat4x4f = ortho[float32](0.0, width, 0.0, height, -1000.0, 1000.0)
         #proc(width, height: float32): Mat4x4f = perspective[float32](90.0, height / width, 0.1, 1000.0)
 
-    var cfg = DefaultOpenglWindowConfig
-    cfg.size = screenSize * defaultScale
-    cfg.title = "YPEE"
-    cfg.resizable = true
-    cfg.version = glfw.glv33
-    cfg.forwardCompat = true
-    cfg.profile = glfw.opCoreProfile
+    discard sdl2.init(INIT_EVERYTHING)
 
-    eg.window = glfw.newWindow(cfg)
+    eg.window = createWindow(
+        "YPEE",
+        100, 100,
+        (screenSize[0] * defaultScale).cint, (screenSize[1] * defaultScale).cint,
+        SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE
+    )
+    #var context = eg.window.glCreateContext()
+    discard eg.window.glCreateContext()
+    discard glSetSwapInterval(1)
 
     eg.renderer.init()
     const
@@ -140,10 +158,8 @@ proc init*(
     eg.renderer.addProgram(piBase.uint, progBase)
     eg.renderer.setUniform("viewMat", mat4f())
     #eg.renderer.setUniform("viewMat", mat4f().translate(-128.0, -120.0, 50.0))
-    eg.refreshProjection()
-    
-    eg.window.registerWindowCallbacks()
-    glfw.swapInterval(1)
+    let winSize = eg.window.getSize()
+    eg.refreshProjection((winSize[0].int, winSize[1].int))
 
     eg.frameCounter.init()
 
@@ -152,15 +168,29 @@ proc init*(
 
 proc destroy*(eg: var YpeeEg) =
     eg.window.destroy()
-    glfw.terminate()
+
+proc processEvents*(eg: var YpeeEg) =
+    var evt = sdl2.defaultEvent
+    while pollEvent(evt):
+        case evt.kind
+            of QuitEvent:
+                eg.running = false
+                break
+            of WindowEvent:
+                var windowEvent = cast[WindowEventPtr](addr(evt))
+                if windowEvent.event == WindowEvent_Resized:
+                    let newWidth = windowEvent.data1
+                    let newHeight = windowEvent.data2
+                    eg.refreshProjection((newWidth.int, newHeight.int))
+            of KeyDown:
+                eg.inputs[toInput(evt.key.keysym.scancode)] = true
+            of KeyUp:
+                eg.inputs[toInput(evt.key.keysym.scancode)] = false
+            else:
+                discard
     
 proc nextFrame*(eg: var YpeeEg): bool =
     eg.delta = eg.frameCounter.tick()
-    glfw.swapBuffers(eg.window)
-    if windowSizeChanged:
-        eg.refreshProjection()
-        windowSizeChanged = false
-    return not eg.window.shouldClose()
-
-proc processEvents*(eg: YpeeEg) =
-    glfw.pollEvents()
+    eg.window.glSwapWindow()
+    eg.processEvents()
+    return eg.running

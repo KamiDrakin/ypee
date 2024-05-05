@@ -19,7 +19,7 @@ proc main() =
     while eg.nextFrame():
         eg.processEvents()
 
-        if eg.frameCounter.elapsed >= 5.0:
+        if eg.frameCounter.elapsed >= 10.0:
             echo eg.frameCounter.getFps()
 
         const moveSpeed = 64.0

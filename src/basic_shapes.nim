@@ -1,4 +1,4 @@
-import glad/gl
+import opengl
 
 type
     GLVertex* = object

@@ -82,6 +82,7 @@ proc tick(fc: var FrameCounter): float =
 
 proc getFps*(fc: var FrameCounter): float =
     result = fc.frameCount.float / fc.elapsed
+    result = result.round(1)
     fc.init()
 
 proc toInput(key: Scancode): Input =
@@ -93,32 +94,27 @@ proc toInput(key: Scancode): Input =
         else: inNone
         
 proc refreshProjection*(eg: var YpeeEg; winSize: (int, int)) =
-    var mat: Mat4x4f
+    var
+        width: float
+        height: float
     if winSize[0] <= 0 or winSize[1] <= 0:
         return
     eg.winSize = winSize
     case eg.screenMode
         of smNoFrame:
-            let
-                width = winSize[0].float
-                height = winSize[1].float
-            mat = ortho[float32](0.0, width, 0.0, height, 100.0, -100.0)
+            width = winSize[0].float
+            height = winSize[1].float
         of smFixed:
-            let
-                width = eg.screenSize[0].float
-                height = eg.screenSize[1].float
-            mat = ortho[float32](0.0, width, 0.0, height, 100.0, -100.0)
-            mat = perspective[float32](90.0, height / width, 0.1, 1000.0)
+            width = eg.screenSize[0].float
+            height = eg.screenSize[1].float
         of smStretch:
             discard # todo
         of smAdjustWidth:
             eg.screenSize[0] = eg.screenSize[1] * winSize[0] div winSize[1]
-            let
-                width = eg.screenSize[0].float
-                height = eg.screenSize[1].float
-            mat = eg.projectionCalc(width, height)
+            width = eg.screenSize[0].float
+            height = eg.screenSize[1].float
             eg.renderer.frame.resize(eg.screenSize)
-    eg.renderer.setUniform("projMat", mat)
+    eg.renderer.setUniform("projMat", eg.projectionCalc(width, height))
 
 proc init*(
     eg: var YpeeEg,
@@ -136,7 +132,7 @@ proc init*(
 
     eg.window = createWindow(
         "YPEE",
-        100, 100,
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         (screenSize[0] * defaultScale).cint, (screenSize[1] * defaultScale).cint,
         SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE
     )

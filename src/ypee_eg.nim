@@ -137,6 +137,9 @@ proc init*(
         SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE
     )
     #var context = eg.window.glCreateContext()
+    discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3)
+    discard glSetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3)
+    discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE)
     discard eg.window.glCreateContext()
     discard glSetSwapInterval(1)
 

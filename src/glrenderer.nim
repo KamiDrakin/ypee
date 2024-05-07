@@ -168,8 +168,9 @@ proc clear*(instSeq: var GLInstanceSeq) =
     instSeq.instances.setLen(0)
 
 proc resize(instSeq: var GLInstanceSeq) =
-    instSeq.maxLen *= 2
-    glBufferData(GL_ARRAY_BUFFER, (instSeq.instances.len() * sizeof(GLfloat)).GLsizeiptr, instSeq.instances[0].addr, GL_DYNAMIC_DRAW)
+    while instSeq.instances.len() > instSeq.maxLen:
+        instSeq.maxLen *= 2
+    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLfloat)).GLsizeiptr, instSeq.instances[0].addr, GL_DYNAMIC_DRAW)
 
 proc bufferData(instSeq: var GLInstanceSeq) =
     glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)

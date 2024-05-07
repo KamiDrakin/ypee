@@ -18,25 +18,24 @@ type
         instAttributes: seq[(GLuint, GLsizei)]
         instSize: GLsizei
         uniforms: Table[string, (GLint, GLsizei)]
-    GLTexture = GLuint
     GLRect* = object
         x, y, w, h: GLfloat
-    GLInstance = seq[float32]
-    GLInstanceSeq = object
+    GLInstance = seq[GLfloat]
+    GLInstanceSeq* = object
         instances: seq[GLfloat]
         instSize: GLsizei
         buffer: GLuint
         maxLen: int
     GLImage* = object
-        texture: GLTexture
-        size: (GLsizei, GLsizei)
+        texture: GLuint
+        size*: (GLsizei, GLsizei)
     GLShape* = object
         nVertices: GLsizei
         vao: GLuint
         program: GLProgram
     GLDrawItem = object
-        shape: ptr GLShape
-        image: ptr GLImage
+        shape: GLShape
+        image: GLImage
         instances: GLInstanceSeq
     GLFrame = object
         shape: GLShape
@@ -145,7 +144,7 @@ proc `+`*(inst1, inst2: GLInstance): GLInstance =
 proc `+`*[T](inst: GLInstance; data: T): GLInstance =
     result = inst + instance(data)
 
-proc init(instSeq: var GLInstanceSeq; program: GLProgram; initLen: int) =
+proc init*(instSeq: var GLInstanceSeq; program: GLProgram; initLen: int) =
     instSeq.instSize = program.instSize
     instSeq.maxLen = initLen
 
@@ -159,10 +158,13 @@ proc init(instSeq: var GLInstanceSeq; program: GLProgram; initLen: int) =
 proc len(instSeq: GLInstanceSeq): int =
     instSeq.instances.len() div instSeq.instSize
 
-proc add(instSeq: var GLInstanceSeq; inst: seq[GLfloat]) =
+proc add*(instSeq: var GLInstanceSeq; inst: GLInstance) =
     instSeq.instances.add(inst)
 
-proc clear(instSeq: var GLInstanceSeq) =
+proc add*(instSeq1: var GLInstanceSeq; instSeq2: GLInstanceSeq) =
+    instSeq1.instances.add(instSeq2.instances)
+
+proc clear*(instSeq: var GLInstanceSeq) =
     instSeq.instances.setLen(0)
 
 proc resize(instSeq: var GLInstanceSeq) =
@@ -175,6 +177,10 @@ proc bufferData(instSeq: var GLInstanceSeq) =
         instSeq.resize()
     else:
         glBufferSubData(GL_ARRAY_BUFFER, 0, (instSeq.instances.len() * sizeof(GLfloat)).GLsizeiptr, instSeq.instances[0].addr)
+
+proc destroy*(instSeq: GLInstanceSeq) =
+    try: glDeleteBuffers(1, instSeq.buffer.addr)
+    except: echo "Failed to delete buffer."
 
 proc init*(image: var GLImage; bmpStr: string) =
     let rBmp = decodeBMP(newStringStream(bmpStr))
@@ -194,6 +200,9 @@ proc init*(image: var GLImage; bmpStr: string) =
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, image.size[0], image.size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, data.cstring)
     #glGenerateMipmap(GL_TEXTURE_2D)
 
+proc `<`*(image1, image2: GLImage): bool =
+    image1.texture < image2.texture
+
 proc init*(shape: var GLShape; program: GLProgram; vertices: seq[GLVertex]) =
     shape.nVertices = vertices.len().GLsizei
     shape.program = program
@@ -209,6 +218,9 @@ proc init*(shape: var GLShape; program: GLProgram; vertices: seq[GLVertex]) =
     glBufferData(GL_ARRAY_BUFFER, (vertices.len() * sizeof(GLVertex)).GLsizeiptr, vertices[0].addr, GL_STATIC_DRAW)
 
     program.enableAttributes(0)
+
+proc `<`*(shape1, shape2: GLShape): bool =
+    shape1.vao < shape2.vao
 
 func drawItemCmp(x, y: GLDrawItem): int =
     if x.shape < y.shape:
@@ -317,8 +329,8 @@ proc applyUniforms(renderer: var GLRenderer) =
 
 proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: GLInstance) =
     var item: GLDrawItem
-    item.shape = shape.addr
-    item.image = image.addr
+    item.shape = shape
+    item.image = image
     let searchPos = renderer.toDraw.binarySearch(item, drawItemCmp)
     if searchPos == -1:
         renderer.use(shape)
@@ -327,6 +339,18 @@ proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: G
         renderer.toDraw.add(item)
     else:
         renderer.toDraw[searchPos].instances.add(instance)
+
+proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instances: GLInstanceSeq) =
+    var item: GLDrawItem
+    item.shape = shape
+    item.image = image
+    let searchPos = renderer.toDraw.binarySearch(item, drawItemCmp)
+    if searchPos == -1:
+        renderer.use(shape)
+        item.instances = instances
+        renderer.toDraw.add(item)
+    else:
+        renderer.toDraw[searchPos].instances.add(instances)
 
 proc render*(renderer: var GLRenderer) =
     glClearColor(renderer.clearColor[0], renderer.clearColor[1], renderer.clearColor[2], 1.0)
@@ -338,16 +362,16 @@ proc render*(renderer: var GLRenderer) =
         lastImage: ptr GLImage = nil
     for item in renderer.toDraw:
         if item.instances.len() == 0: continue
-        if item.shape != lastShape:
-            renderer.use(item.shape[])
-            lastShape = item.shape
-        if item.image != lastImage:
-            renderer.use(item.image[])
-            lastImage = item.image
+        if item.shape.addr != lastShape:
+            renderer.use(item.shape)
+            lastShape = item.shape.addr
+        if item.image.addr != lastImage:
+            renderer.use(item.image)
+            lastImage = item.image.addr
         renderer.applyUniforms()
         let itemPtr = item.addr
         itemPtr[].instances.bufferData()
-        glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape[].nVertices, item.instances.len().GLsizei)
+        glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape.nVertices, item.instances.len().GLsizei)
         itemPtr[].instances.clear()
 
 proc renderFramed*(renderer: var GLRenderer; windowSize: (int, int)) =

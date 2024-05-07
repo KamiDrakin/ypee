@@ -18,6 +18,14 @@ type
         shape*: GLShape
         image*: GLImage
         size: (uint, uint)
+        width: uint
+    MonoText* = object
+        sheet: SpriteSheet
+        instances: GLInstanceSeq
+        pos: Vec3f
+        str: string
+        width*: float
+        changed: bool
     Camera* = object
         pos: Vec3f
         rot: Vec3f
@@ -54,14 +62,47 @@ proc init*(sheet: var SpriteSheet; size: (uint, uint); program: GLProgram; bmpSt
     sheet.shape.init(program, squareVertices)
     sheet.image.init(bmpStr)
     sheet.size = size
+    sheet.width = sheet.image.size[0].uint div size[0]
 
-proc at*(sheet: SpriteSheet; x, y: int): GLRect =
+proc at*(sheet: SpriteSheet; x, y: uint): GLRect =
     let
         x = x.float
         y = y.float
         w = sheet.size[0].float
         h = sheet.size[1].float
     rect(x * w, y * h, w, h)
+
+proc init*(text: var MonoText; size: (uint, uint); program: GLProgram; bmpStr: string) =
+    text.sheet.init(size, program, bmpStr)
+    text.instances.init(program, 4)
+    text.width = 0.0
+
+proc setContent*(text: var MonoText; str: string) =
+    if str != text.str:
+        text.str = str
+        text.width = text.sheet.size[0].float * (str.len() - 1).float
+        text.changed = true
+
+proc setPos*(text: var MonoText; pos: Vec3f) =
+    if pos != text.pos:
+        text.pos = pos
+        text.changed = true
+
+proc drawData*(text: var MonoText): (GLShape, GLImage, GLInstanceSeq) =
+    if text.changed:
+        text.instances.clear()
+        for i, c in text.str:
+            let
+                asc = c.uint - 32
+                inst =
+                    instance(vec4f(1.0, 1.0, 1.0, 1.0)) +
+                    text.sheet.at(asc mod text.sheet.width, asc div text.sheet.width) +
+                    mat4f()
+                        .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
+                        .scale(text.sheet.size[0].float, text.sheet.size[1].float, 0.0)
+            text.instances.add(inst)
+        text.changed = false
+    (text.sheet.shape, text.sheet.image, text.instances)
 
 proc init(fc: var FrameCounter) =
     fc.frameCount = 0
@@ -140,7 +181,7 @@ proc init*(
     discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3)
     discard glSetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3)
     discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE)
-    discard eg.window.glCreateContext()
+    discard glCreateContext(eg.window)
     discard glSetSwapInterval(1)
 
     eg.renderer.init()
@@ -193,3 +234,6 @@ proc nextFrame*(eg: var YpeeEg): bool =
     eg.window.glSwapWindow()
     eg.processEvents()
     return eg.running
+
+proc draw*(eg: var YpeeEg; data: (GLShape, GLImage, GLInstanceSeq)) =
+    eg.renderer.draw(data[0], data[1], data[2])

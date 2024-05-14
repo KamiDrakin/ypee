@@ -65,17 +65,17 @@ proc newProgram*(vShaderSrc, fShaderSrc: string): GLProgram =
 
     result = new GLProgram
 
-    var
+    let
         vShader = glCreateShader(GL_VERTEX_SHADER)
         vShaderTextArr = [vShaderSrc.cstring]
-    glShaderSource(vShader, 1, cast[cstringArray](vShaderTextArr.addr), nil);
+    glShaderSource(vShader, 1, cast[cstringArray](vShaderTextArr.addr), nil)
     glCompileShader(vShader)
     errorCheck(vShader)
 
-    var
+    let
         fShader = glCreateShader(GL_FRAGMENT_SHADER)
         fShaderTextArr = [fShaderSrc.cstring]
-    glShaderSource(fShader, 1, cast[cstringArray](fShaderTextArr.addr), nil);
+    glShaderSource(fShader, 1, cast[cstringArray](fShaderTextArr.addr), nil)
     glCompileShader(fShader)
     errorCheck(fShader)
 
@@ -152,7 +152,7 @@ proc newInstanceSeq*(program: GLProgram; initLen: int): GLInstanceSeq =
     result.instSize = program.instSize
     result.maxLen = initLen
 
-    glGenBuffers(1, result.buffer.addr);
+    glGenBuffers(1, result.buffer.addr)
 
     glBindBuffer(GL_ARRAY_BUFFER, result.buffer)
     glBufferData(GL_ARRAY_BUFFER, (result.instances.len() * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
@@ -249,14 +249,14 @@ proc resize*(frame: GLFrame; size: (int, int)) =
 
     glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo)
 
-    glBindTexture(GL_TEXTURE_2D, frame.texture);
+    glBindTexture(GL_TEXTURE_2D, frame.texture)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, size[0], size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, nil)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST.GLint)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.GLint)
     glBindTexture(GL_TEXTURE_2D, 0)
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frame.texture, 0)
 
-    glBindRenderbuffer(GL_RENDERBUFFER, frame.rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, frame.rbo)
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, size[0], size[1])  
     glBindRenderbuffer(GL_RENDERBUFFER, 0)
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, frame.rbo)

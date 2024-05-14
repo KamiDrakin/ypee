@@ -19,6 +19,9 @@ type
         image*: GLImage
         size: (uint, uint)
         width: uint
+    Sprite* = ref object
+        sheet: SpriteSheet
+        offset*: (uint, uint)
     MonoText* = ref object
         sheet: SpriteSheet
         instances: GLInstanceSeq
@@ -63,8 +66,12 @@ proc newSpriteSheet*(size: (uint, uint); program: GLProgram; bmpStr: string): Sp
 
     result.shape = newShape(program, squareVertices)
     result.image = newImage(bmpStr)
-    result.size = size
-    result.width = result.image.size[0].uint div size[0]
+    result.size =
+        if size[0] == 0 or size[1] == 0:
+            (result.image.size[0].uint, result.image.size[1].uint)
+        else:
+            size
+    result.width = result.image.size[0].uint div result.size[0]
 
 proc at*(sheet: SpriteSheet; x, y: uint): GLRect =
     let
@@ -73,6 +80,19 @@ proc at*(sheet: SpriteSheet; x, y: uint): GLRect =
         w = sheet.size[0].float
         h = sheet.size[1].float
     rect(x * w, y * h, w, h)
+
+proc newSprite*(sheet: SpriteSheet; offset: (uint, uint)): Sprite =
+    result = new Sprite
+
+    result.sheet = sheet
+    result.offset = offset
+
+proc draw*(sprite: Sprite; eg: YpeeEg; pos: Vec3f) =
+    let inst =
+        instance(vec4f(1.0, 1.0, 1.0, 1.0)) +
+        sprite.sheet.at(sprite.offset[0], sprite.offset[1]) +
+        mat4f().translate(pos).scale(sprite.sheet.size[0].float, sprite.sheet.size[1].float, 1.0)
+    eg.renderer.draw(sprite.sheet.shape, sprite.sheet.image, inst)
 
 proc newMonoText*(size: (uint, uint); program: GLProgram; bmpStr: string): MonoText =
     result = new MonoText
@@ -92,7 +112,7 @@ proc setPos*(text: MonoText; pos: Vec3f) =
         text.pos = pos
         text.changed = true
 
-proc drawData*(text: MonoText): (GLShape, GLImage, GLInstanceSeq) =
+proc draw*(text: MonoText; eg: YpeeEg) =
     if text.changed:
         text.instances.clear()
         for i, c in text.str:
@@ -106,7 +126,7 @@ proc drawData*(text: MonoText): (GLShape, GLImage, GLInstanceSeq) =
                         .scale(text.sheet.size[0].float, text.sheet.size[1].float, 0.0)
             text.instances.add(inst)
         text.changed = false
-    (text.sheet.shape, text.sheet.image, text.instances)
+    eg.renderer.draw(text.sheet.shape, text.sheet.image, text.instances)
 
 proc newFrameCounter(): FrameCounter =
     result = new FrameCounter
@@ -243,6 +263,3 @@ proc nextFrame*(eg: YpeeEg): bool =
     eg.window.glSwapWindow()
     eg.processEvents()
     return eg.running
-
-proc draw*(eg: YpeeEg; data: (GLShape, GLImage, GLInstanceSeq)) =
-    eg.renderer.draw(data[0], data[1], data[2])

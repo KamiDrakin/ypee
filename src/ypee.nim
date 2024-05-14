@@ -8,14 +8,14 @@ proc main() =
     var eg = newYpeeEg((256, 224), smAdjustWidth)
 
     const testBmp = staticRead("../textures/champions.bmp")
-    var testSheet = newSpriteSheet((16u, 16u), eg.renderer.program(0), testBmp)
+    var
+        testSheet = newSpriteSheet((16u, 16u), eg.renderer.program(0), testBmp)
+        testSprite = newSprite(testSheet, (5u, 0u))
 
     const fontBmp = staticRead("../textures/font.bmp")
     var fpsText = newMonoText((8u, 8u), eg.renderer.program(0), fontBmp)
     fpsText.setContent("0.0")
     fpsText.setPos(vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
-
-    const mat = mat4f()
 
     var pPos = vec3f(128.0, 112.0, 0.0)
 
@@ -37,11 +37,8 @@ proc main() =
            pPos += moveVec.normalize() * moveSpeed * eg.delta
             
         #eg.renderer.setUniform("viewMat", mat4f().translate(-pPos + vec3f(128.0, 112.0, 0.0)))
-        let instance = instance(vec4f(1.0, 1.0, 1.0, 1.0)) +
-            testSheet.at(1, 0) +
-            mat.translate(pPos).scale(16.0, 16.0, 1.0)
-        eg.renderer.draw(testSheet.shape, testSheet.image, instance)
-        eg.draw(fpsText.drawData())
+        testSprite.draw(eg, pPos)
+        fpsText.draw(eg)
         eg.renderer.renderFramed(eg.winSize)
         #eg.renderer.render()
     

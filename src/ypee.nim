@@ -5,26 +5,21 @@ import glm
 import glrenderer
 
 proc main() =
-    var eg: YpeeEg
-    eg.init((256, 224), smAdjustWidth)
+    var eg = newYpeeEg((256, 224), smAdjustWidth)
 
     const testBmp = staticRead("../textures/champions.bmp")
-    var testSheet: SpriteSheet
-    testSheet.init((16u, 16u), eg.renderer.program(0), testBmp)
+    var testSheet = newSpriteSheet((16u, 16u), eg.renderer.program(0), testBmp)
 
     const fontBmp = staticRead("../textures/font.bmp")
-    var fpsText: MonoText
-    fpsText.init((8u, 8u), eg.renderer.program(0), fontBmp)
+    var fpsText = newMonoText((8u, 8u), eg.renderer.program(0), fontBmp)
     fpsText.setContent("0.0")
-    fpsText.setPos(vec3f(6.0, eg.screenSize[1].float - 10.0, 10.0))
+    fpsText.setPos(vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
 
     const mat = mat4f()
 
     var pPos = vec3f(128.0, 112.0, 0.0)
 
     while eg.nextFrame():
-        eg.processEvents()
-
         if eg.frameCounter.elapsed >= 2.0:
             fpsText.setContent($eg.frameCounter.getFps())
 

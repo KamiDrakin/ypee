@@ -14,23 +14,23 @@ type
         smFixed
         smStretch
         smAdjustWidth
-    SpriteSheet* = object
+    SpriteSheet* = ref object
         shape*: GLShape
         image*: GLImage
         size: (uint, uint)
         width: uint
-    MonoText* = object
+    MonoText* = ref object
         sheet: SpriteSheet
         instances: GLInstanceSeq
         pos: Vec3f
         str: string
         width*: float
         changed: bool
-    Camera* = object
+    Camera* = ref object
         pos: Vec3f
         rot: Vec3f
         viewMat: Mat4x4f
-    FrameCounter = object
+    FrameCounter = ref object
         frameCount: int
         prevTime: float
         frameTimer: float
@@ -41,7 +41,7 @@ type
         inKeyLeft
         inKeyRight
         inNone
-    YpeeEg* = object
+    YpeeEg* = ref object
         running: bool
         window*: WindowPtr
         winSize*: (int, int)
@@ -58,11 +58,13 @@ const
     defaultScreenMode = smFixed
     defaultScale = 3
 
-proc init*(sheet: var SpriteSheet; size: (uint, uint); program: GLProgram; bmpStr: string) =
-    sheet.shape.init(program, squareVertices)
-    sheet.image.init(bmpStr)
-    sheet.size = size
-    sheet.width = sheet.image.size[0].uint div size[0]
+proc newSpriteSheet*(size: (uint, uint); program: GLProgram; bmpStr: string): SpriteSheet =
+    result = new SpriteSheet
+
+    result.shape = newShape(program, squareVertices)
+    result.image = newImage(bmpStr)
+    result.size = size
+    result.width = result.image.size[0].uint div size[0]
 
 proc at*(sheet: SpriteSheet; x, y: uint): GLRect =
     let
@@ -72,10 +74,12 @@ proc at*(sheet: SpriteSheet; x, y: uint): GLRect =
         h = sheet.size[1].float
     rect(x * w, y * h, w, h)
 
-proc init*(text: var MonoText; size: (uint, uint); program: GLProgram; bmpStr: string) =
-    text.sheet.init(size, program, bmpStr)
-    text.instances.init(program, 4)
-    text.width = 0.0
+proc newMonoText*(size: (uint, uint); program: GLProgram; bmpStr: string): MonoText =
+    result = new MonoText
+
+    result.sheet = newSpriteSheet(size, program, bmpStr)
+    result.instances = newInstanceSeq(program, 4)
+    result.width = 0.0
 
 proc setContent*(text: var MonoText; str: string) =
     if str != text.str:
@@ -83,12 +87,12 @@ proc setContent*(text: var MonoText; str: string) =
         text.width = text.sheet.size[0].float * (str.len() - 1).float
         text.changed = true
 
-proc setPos*(text: var MonoText; pos: Vec3f) =
+proc setPos*(text: MonoText; pos: Vec3f) =
     if pos != text.pos:
         text.pos = pos
         text.changed = true
 
-proc drawData*(text: var MonoText): (GLShape, GLImage, GLInstanceSeq) =
+proc drawData*(text: MonoText): (GLShape, GLImage, GLInstanceSeq) =
     if text.changed:
         text.instances.clear()
         for i, c in text.str:
@@ -104,12 +108,15 @@ proc drawData*(text: var MonoText): (GLShape, GLImage, GLInstanceSeq) =
         text.changed = false
     (text.sheet.shape, text.sheet.image, text.instances)
 
-proc init(fc: var FrameCounter) =
-    fc.frameCount = 0
-    fc.frameTimer = 0.0
-    fc.elapsed = 0.0
+proc newFrameCounter(): FrameCounter =
+    result = new FrameCounter
 
-proc tick(fc: var FrameCounter): float =
+    result.frameCount = 0
+    result.prevTime = 0.0
+    result.frameTimer = 0.0
+    result.elapsed = 0.0
+
+proc tick(fc: FrameCounter): float =
     fc.frameCount += 1
     let
         time = sdl2.getTicks().float / 1000.0
@@ -121,10 +128,12 @@ proc tick(fc: var FrameCounter): float =
         fc.elapsed += 1.0
     return delta
 
-proc getFps*(fc: var FrameCounter): float =
+proc getFps*(fc: FrameCounter): float =
     result = fc.frameCount.float / fc.elapsed
     result = result.round(1)
-    fc.init()
+    fc.frameCount = 0
+    fc.frameTimer = 0.0
+    fc.elapsed = 0.0
 
 proc toInput(key: Scancode): Input =
     case key
@@ -134,7 +143,7 @@ proc toInput(key: Scancode): Input =
         of SDL_SCANCODE_RIGHT: inKeyRight
         else: inNone
         
-proc refreshProjection*(eg: var YpeeEg; winSize: (int, int)) =
+proc refreshProjection*(eg: YpeeEg; winSize: (int, int)) =
     var
         width: float
         height: float
@@ -157,21 +166,22 @@ proc refreshProjection*(eg: var YpeeEg; winSize: (int, int)) =
             eg.renderer.frame.resize(eg.screenSize)
     eg.renderer.setUniform("projMat", eg.projectionCalc(width, height))
 
-proc init*(
-    eg: var YpeeEg,
+proc newYpeeEg*(
     screenSize: (int, int) = defaultScreenSize,
     screenMode: ScreenMode = defaultScreenMode,
-) =
-    eg.running = true
-    eg.screenSize = screenSize
-    eg.screenMode = screenMode
-    eg.projectionCalc =
+): YpeeEg =
+    result = new YpeeEg
+
+    result.running = true
+    result.screenSize = screenSize
+    result.screenMode = screenMode
+    result.projectionCalc =
         proc(width, height: float32): Mat4x4f = ortho[float32](0.0, width, 0.0, height, -1000.0, 1000.0)
         #proc(width, height: float32): Mat4x4f = perspective[float32](90.0, height / width, 0.1, 1000.0)
 
     discard sdl2.init(INIT_EVERYTHING)
 
-    eg.window = createWindow(
+    result.window = createWindow(
         "YPEE",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         (screenSize[0] * defaultScale).cint, (screenSize[1] * defaultScale).cint,
@@ -181,35 +191,34 @@ proc init*(
     discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3)
     discard glSetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3)
     discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE)
-    discard glCreateContext(eg.window)
+    discard glCreateContext(result.window)
     discard glSetSwapInterval(1)
 
-    eg.renderer.init()
+    result.renderer = newRenderer()
     const
         vShaderSrc = staticRead("shaders/ypee.vs")
         fShaderSrc = staticRead("shaders/ypee.fs")
-    var progBase: GLProgram
-    progBase.init(vShaderSrc, fShaderSrc)
+    var progBase = newProgram(vShaderSrc, fShaderSrc)
     progBase.setAttributes(
         @[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)],
         @[("iColor", 4), ("texRect", 4), ("modelMat", 16)]
     )
     progBase.setUniforms(@[("texSize", 2), ("viewMat", 16), ("projMat", 16)])
-    eg.renderer.addProgram(piBase.uint, progBase)
-    eg.renderer.setUniform("viewMat", mat4f())
+    result.renderer.addProgram(piBase.uint, progBase)
+    result.renderer.setUniform("viewMat", mat4f())
     #eg.renderer.setUniform("viewMat", mat4f().translate(-128.0, -120.0, 50.0))
-    let winSize = eg.window.getSize()
-    eg.refreshProjection((winSize[0].int, winSize[1].int))
 
-    eg.frameCounter.init()
+    result.frameCounter = newFrameCounter()
 
-    eg.renderer.clearColor = (0.1, 0.0, 0.1)
-    eg.renderer.frame.init(screenSize)
+    result.renderer.clearColor = (0.1, 0.0, 0.1)
+    result.renderer.frame = newFrame(screenSize)
+    let winSize = result.window.getSize()
+    result.refreshProjection((winSize[0].int, winSize[1].int))
 
-proc destroy*(eg: var YpeeEg) =
+proc destroy*(eg: YpeeEg) =
     eg.window.destroy()
 
-proc processEvents*(eg: var YpeeEg) =
+proc processEvents*(eg: YpeeEg) =
     var evt = sdl2.defaultEvent
     while pollEvent(evt):
         case evt.kind
@@ -229,11 +238,11 @@ proc processEvents*(eg: var YpeeEg) =
             else:
                 discard
     
-proc nextFrame*(eg: var YpeeEg): bool =
+proc nextFrame*(eg: YpeeEg): bool =
     eg.delta = eg.frameCounter.tick()
     eg.window.glSwapWindow()
     eg.processEvents()
     return eg.running
 
-proc draw*(eg: var YpeeEg; data: (GLShape, GLImage, GLInstanceSeq)) =
+proc draw*(eg: YpeeEg; data: (GLShape, GLImage, GLInstanceSeq)) =
     eg.renderer.draw(data[0], data[1], data[2])

@@ -12,7 +12,7 @@ import basic_shapes
 export basic_shapes
 
 type
-    GLProgram* = object
+    GLProgram* = ref object
         id: GLuint
         vertAttributes: seq[(GLuint, GLsizei)]
         instAttributes: seq[(GLuint, GLsizei)]
@@ -21,15 +21,15 @@ type
     GLRect* = object
         x, y, w, h: GLfloat
     GLInstance = seq[GLfloat]
-    GLInstanceSeq* = object
+    GLInstanceSeq* = ref object
         instances: seq[GLfloat]
         instSize: GLsizei
         buffer: GLuint
         maxLen: int
-    GLImage* = object
+    GLImage* = ref object
         texture: GLuint
         size*: (GLsizei, GLsizei)
-    GLShape* = object
+    GLShape* = ref object
         nVertices: GLsizei
         vao: GLuint
         program: GLProgram
@@ -37,21 +37,21 @@ type
         shape: GLShape
         image: GLImage
         instances: GLInstanceSeq
-    GLFrame = object
+    GLFrame = ref object
         shape: GLShape
         fbo: GLuint
         rbo: GLuint
         texture: GLuint
         size: (GLsizei, GLsizei)
-    GLRenderer* = object
+    GLRenderer* = ref object
         programs: Table[uint, GLProgram]
-        usedProgram: ptr GLProgram
+        usedProgram: GLProgram
         toDraw: seq[GLDrawItem]
         uniformVals: Table[string, ptr GLfloat]
         clearColor*: (GLfloat, GLfloat, GLfloat)
         frame*: GLFrame
 
-proc init*(program: var GLProgram; vShaderSrc, fShaderSrc: string) =
+proc newProgram*(vShaderSrc, fShaderSrc: string): GLProgram =
 
     proc errorCheck(shader: GLuint) =
         var
@@ -62,6 +62,8 @@ proc init*(program: var GLProgram; vShaderSrc, fShaderSrc: string) =
         glGetShaderInfoLog(shader, 1024, nil, infoLog.cstring)
         echo infoLog.cstring
         quit()
+
+    result = new GLProgram
 
     var
         vShader = glCreateShader(GL_VERTEX_SHADER)
@@ -78,17 +80,17 @@ proc init*(program: var GLProgram; vShaderSrc, fShaderSrc: string) =
     errorCheck(fShader)
 
     var success: bool
-    program.id = glCreateProgram()
-    glAttachShader(program.id, vShader)
-    glAttachShader(program.id, fShader)
-    glLinkProgram(program.id)
-    glGetProgramiv(program.id, GL_LINK_STATUS, cast[ptr GLint](success.addr))
+    result.id = glCreateProgram()
+    glAttachShader(result.id, vShader)
+    glAttachShader(result.id, fShader)
+    glLinkProgram(result.id)
+    glGetProgramiv(result.id, GL_LINK_STATUS, cast[ptr GLint](success.addr))
     assert success
 
     glDeleteShader(vShader)
     glDeleteShader(fShader)
 
-proc setAttributes*(program: var GLProgram; vertAttribs, instAttribs: seq[(string, int)]) =
+proc setAttributes*(program: GLProgram; vertAttribs, instAttribs: seq[(string, int)]) =
     for (aName, aSize) in vertAttribs:
         let 
             aSize = aSize.GLsizei
@@ -105,7 +107,7 @@ proc setAttributes*(program: var GLProgram; vertAttribs, instAttribs: seq[(strin
         program.instAttributes.add((aLoc.GLuint, aSize))
         program.instSize += aSize
 
-proc setUniforms*(program: var GLProgram; uniforms: seq[(string, int)]) =
+proc setUniforms*(program: GLProgram; uniforms: seq[(string, int)]) =
     for (uName, uSize) in uniforms:
         let
             uLoc = glGetUniformLocation(program.id, uName.cstring)
@@ -144,35 +146,37 @@ proc `+`*(inst1, inst2: GLInstance): GLInstance =
 proc `+`*[T](inst: GLInstance; data: T): GLInstance =
     result = inst + instance(data)
 
-proc init*(instSeq: var GLInstanceSeq; program: GLProgram; initLen: int) =
-    instSeq.instSize = program.instSize
-    instSeq.maxLen = initLen
+proc newInstanceSeq*(program: GLProgram; initLen: int): GLInstanceSeq =
+    result = new GLInstanceSeq
 
-    glGenBuffers(1, instSeq.buffer.addr);
+    result.instSize = program.instSize
+    result.maxLen = initLen
 
-    glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
-    glBufferData(GL_ARRAY_BUFFER, (instSeq.instances.len() * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
+    glGenBuffers(1, result.buffer.addr);
+
+    glBindBuffer(GL_ARRAY_BUFFER, result.buffer)
+    glBufferData(GL_ARRAY_BUFFER, (result.instances.len() * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
 
     program.enableAttributes(1)
 
 proc len(instSeq: GLInstanceSeq): int =
     instSeq.instances.len() div instSeq.instSize
 
-proc add*(instSeq: var GLInstanceSeq; inst: GLInstance) =
+proc add*(instSeq: GLInstanceSeq; inst: GLInstance) =
     instSeq.instances.add(inst)
 
-proc add*(instSeq1: var GLInstanceSeq; instSeq2: GLInstanceSeq) =
+proc add*(instSeq1: GLInstanceSeq; instSeq2: GLInstanceSeq) =
     instSeq1.instances.add(instSeq2.instances)
 
-proc clear*(instSeq: var GLInstanceSeq) =
+proc clear*(instSeq: GLInstanceSeq) =
     instSeq.instances.setLen(0)
 
-proc resize(instSeq: var GLInstanceSeq) =
+proc resize(instSeq: GLInstanceSeq) =
     while instSeq.instances.len() > instSeq.maxLen:
         instSeq.maxLen *= 2
     glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLfloat)).GLsizeiptr, instSeq.instances[0].addr, GL_DYNAMIC_DRAW)
 
-proc bufferData(instSeq: var GLInstanceSeq) =
+proc bufferData(instSeq: GLInstanceSeq) =
     glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
     if instSeq.instances.len() > instSeq.maxLen:
         instSeq.resize()
@@ -183,37 +187,41 @@ proc destroy*(instSeq: GLInstanceSeq) =
     try: glDeleteBuffers(1, instSeq.buffer.addr)
     except: echo "Failed to delete buffer."
 
-proc init*(image: var GLImage; bmpStr: string) =
+proc newImage*(bmpStr: string): GLImage =
+    result = new GLImage
+
     let rBmp = decodeBMP(newStringStream(bmpStr))
     assert rBmp != nil
     let
         bmp = convert[string](rBmp, 24)
         data = bmp.data.bmpDataFlip(bmp.width)
     assert bmp.width > 0 and bmp.height > 0
-    image.size = (bmp.width.GLsizei, bmp.height.GLsizei)
-    glGenTextures(1, image.texture.addr)
-    glBindTexture(GL_TEXTURE_2D, image.texture)
+    result.size = (bmp.width.GLsizei, bmp.height.GLsizei)
+    glGenTextures(1, result.texture.addr)
+    glBindTexture(GL_TEXTURE_2D, result.texture)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT.GLint)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT.GLint)
     #glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST.GLint)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST.GLint)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.GLint)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, image.size[0], image.size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, data.cstring)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, result.size[0], result.size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, data.cstring)
     #glGenerateMipmap(GL_TEXTURE_2D)
 
 proc `<`*(image1, image2: GLImage): bool =
     image1.texture < image2.texture
 
-proc init*(shape: var GLShape; program: GLProgram; vertices: seq[GLVertex]) =
-    shape.nVertices = vertices.len().GLsizei
-    shape.program = program
+proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
+    result = new GLShape
+
+    result.nVertices = vertices.len().GLsizei
+    result.program = program
     
-    glGenVertexArrays(1, shape.vao.addr)
+    glGenVertexArrays(1, result.vao.addr)
 
     var vbo: GLuint
     glGenBuffers(1, vbo.addr)
 
-    glBindVertexArray(shape.vao)
+    glBindVertexArray(result.vao)
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo)
     glBufferData(GL_ARRAY_BUFFER, (vertices.len() * sizeof(GLVertex)).GLsizeiptr, vertices[0].addr, GL_STATIC_DRAW)
@@ -234,7 +242,7 @@ func drawItemCmp(x, y: GLDrawItem): int =
         return 1
     return 0
 
-proc resize*(frame: var GLFrame; size: (int, int)) =
+proc resize*(frame: GLFrame; size: (int, int)) =
     if frame.fbo == 0: return
     let size = (size[0].GLsizei, size[1].GLsizei)
     frame.size = size
@@ -256,40 +264,43 @@ proc resize*(frame: var GLFrame; size: (int, int)) =
     assert glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
-proc init*(frame: var GLFrame; size: (int, int)) =
+proc newFrame*(size: (int, int)): GLFrame =
+    result = new GLFrame
+
     const
         vShaderSrc = staticRead("shaders/frame.vs")
         fShaderSrc = staticRead("shaders/frame.fs")
     var program: GLProgram
-    program.init(vShaderSrc, fShaderSrc)
+    program = newProgram(vShaderSrc, fShaderSrc)
     program.setAttributes(@[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)], @[])
     program.setUniforms(@[("frameScale", 2)])
-    frame.shape.init(program, frameVertices)
+    result.shape = newShape(program, frameVertices)
 
-    glGenFramebuffers(1, frame.fbo.addr)
-    glGenTextures(1, frame.texture.addr)
-    glGenRenderbuffers(1, frame.rbo.addr)
+    glGenFramebuffers(1, result.fbo.addr)
+    glGenTextures(1, result.texture.addr)
+    glGenRenderbuffers(1, result.rbo.addr)
 
-    frame.resize(size)        
+    result.resize(size)        
 
-proc init*(renderer: var GLRenderer) =
-    renderer.usedProgram = nil
+proc newRenderer*(): GLRenderer =
+    result = new GLRenderer
+    result.usedProgram = nil
     loadExtensions()
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
     glEnable(GL_CULL_FACE)
     glFrontFace(GL_CW)
 
-proc addProgram*(renderer: var GLRenderer; key: uint; program: GLProgram) =
+proc addProgram*(renderer: GLRenderer; key: uint; program: GLProgram) =
     renderer.programs[key] = program
     if renderer.usedProgram == nil:
-        renderer.usedProgram = renderer.programs[key].addr
+        renderer.usedProgram = renderer.programs[key]
         glUseProgram(program.id)
 
 proc program*(renderer: GLRenderer; key: uint): GLProgram =
     return renderer.programs[key]
 
-proc setUniform*[T](renderer: var GLRenderer; name: string; val: T) =
+proc setUniform*[T](renderer: GLRenderer; name: string; val: T) =
     let valPtr = cast[ptr T](alloc(sizeof(T)))
     valPtr[] = val
     let valFPtr = cast[ptr GLfloat](valPtr)
@@ -301,22 +312,22 @@ proc setUniform*[T](renderer: var GLRenderer; name: string; val: T) =
         dealloc(oldPtr)
     renderer.uniformVals[name] = valFPtr
 
-proc use(renderer: var GLRenderer; program: GLProgram) =
+proc use(renderer: GLRenderer; program: GLProgram) =
     if renderer.usedProgram != nil and program.id == renderer.usedProgram[].id: return
-    renderer.usedProgram = program.addr
+    renderer.usedProgram = program
     glUseProgram(program.id)
     
-proc use(renderer: var GLRenderer; image: GLImage) =
+proc use(renderer: GLRenderer; image: GLImage) =
     let imageSize = vec2f(image.size[0].GLfloat, image.size[1].GLfloat)
     renderer.setUniform("texSize", cast[ptr GLfloat](imageSize))
     #glActiveTexture(GL_TEXTURE0)
     glBindTexture(GL_TEXTURE_2D, image.texture)
 
-proc use(renderer: var GLRenderer; shape: GLShape) =
+proc use(renderer: GLRenderer; shape: GLShape) =
     renderer.use(shape.program)
     glBindVertexArray(shape.vao)
 
-proc applyUniforms(renderer: var GLRenderer) =
+proc applyUniforms(renderer: GLRenderer) =
     let uniforms = renderer.usedProgram[].uniforms
     for k, (uLoc, uSize) in uniforms:
         let val = renderer.uniformVals[k]
@@ -328,32 +339,33 @@ proc applyUniforms(renderer: var GLRenderer) =
             of 16: glUniformMatrix4fv(uLoc, 1.GLsizei, false, val)
             else: discard
 
-proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instance: GLInstance) =
+proc draw*(renderer: GLRenderer; shape: GLShape; image: GLImage; instance: GLInstance) =
     var item: GLDrawItem
     item.shape = shape
     item.image = image
     let searchPos = renderer.toDraw.binarySearch(item, drawItemCmp)
     if searchPos == -1:
         renderer.use(shape)
-        item.instances.init(renderer.usedProgram[], 4)
+        item.instances = newInstanceSeq(renderer.usedProgram, 4)
         item.instances.add(instance)
         renderer.toDraw.add(item)
     else:
         renderer.toDraw[searchPos].instances.add(instance)
 
-proc draw*(renderer: var GLRenderer; shape: GLShape; image: GLImage; instances: GLInstanceSeq) =
+proc draw*(renderer: GLRenderer; shape: GLShape; image: GLImage; instances: GLInstanceSeq) =
     var item: GLDrawItem
     item.shape = shape
     item.image = image
     let searchPos = renderer.toDraw.binarySearch(item, drawItemCmp)
     if searchPos == -1:
         renderer.use(shape)
-        item.instances = instances
+        item.instances = new GLInstanceSeq
+        item.instances[] = instances[]
         renderer.toDraw.add(item)
     else:
         renderer.toDraw[searchPos].instances.add(instances)
 
-proc render*(renderer: var GLRenderer) =
+proc render*(renderer: GLRenderer) =
     glClearColor(renderer.clearColor[0], renderer.clearColor[1], renderer.clearColor[2], 1.0)
     glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
     glEnable(GL_DEPTH_TEST)
@@ -375,7 +387,7 @@ proc render*(renderer: var GLRenderer) =
         glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape.nVertices, item.instances.len().GLsizei)
         itemPtr[].instances.clear()
 
-proc renderFramed*(renderer: var GLRenderer; windowSize: (int, int)) =
+proc renderFramed*(renderer: GLRenderer; windowSize: (int, int)) =
     let windowSize = (windowSize[0].GLsizei, windowSize[1].GLsizei)
     glBindFramebuffer(GL_FRAMEBUFFER, renderer.frame.fbo)
     glViewport(0, 0, renderer.frame.size[0], renderer.frame.size[1])

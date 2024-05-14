@@ -5,12 +5,13 @@ import glm
 import glrenderer
 
 proc main() =
-    var eg = newYpeeEg((256, 224), smAdjustWidth)
+    var eg = newYpeeEg((256, 224), smFixed)
 
-    const testBmp = staticRead("../textures/champions.bmp")
+    const testBmp = staticRead("../textures/rat.bmp")
     var
-        testSheet = newSpriteSheet((16u, 16u), eg.renderer.program(0), testBmp)
-        testSprite = newSprite(testSheet, (5u, 0u))
+        #testSheet = newSpriteSheet((16u, 16u), eg.renderer.program(0), testBmp)
+        testSheet = newSpriteSheet((0u, 0u), eg.renderer.program(0), testBmp)
+        testSprite = newSprite(testSheet, (0u, 0u))
 
     const fontBmp = staticRead("../textures/font.bmp")
     var fpsText = newMonoText((8u, 8u), eg.renderer.program(0), fontBmp)
@@ -37,10 +38,14 @@ proc main() =
            pPos += moveVec.normalize() * moveSpeed * eg.delta
             
         #eg.renderer.setUniform("viewMat", mat4f().translate(-pPos + vec3f(128.0, 112.0, 0.0)))
-        testSprite.draw(eg, pPos)
+        testSprite.draw(
+            eg,
+            pos = pPos,
+            tint = vec4f(0.5 + sin(eg.time) / 2.0, 0.0, 0.5 + cos(eg.time) / 2.0, 1.0),
+            scale = vec2f(0.3, 0.3)
+        )
         fpsText.draw(eg)
-        eg.renderer.renderFramed(eg.winSize)
-        #eg.renderer.render()
+        eg.present()
     
     eg.destroy()
 

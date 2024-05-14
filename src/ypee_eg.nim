@@ -54,6 +54,7 @@ type
         renderer*: GLRenderer
         frameCounter*: FrameCounter
         delta*: float
+        time*: float
         inputs*: array[Input, bool]
 
 const
@@ -87,11 +88,17 @@ proc newSprite*(sheet: SpriteSheet; offset: (uint, uint)): Sprite =
     result.sheet = sheet
     result.offset = offset
 
-proc draw*(sprite: Sprite; eg: YpeeEg; pos: Vec3f) =
+proc draw*(
+    sprite: Sprite;
+    eg: YpeeEg;
+    pos: Vec3f;
+    tint: Vec4f = vec4f(1.0);
+    scale: Vec2f = vec2f(1.0);
+) =
     let inst =
-        instance(vec4f(1.0, 1.0, 1.0, 1.0)) +
+        instance(tint) +
         sprite.sheet.at(sprite.offset[0], sprite.offset[1]) +
-        mat4f().translate(pos).scale(sprite.sheet.size[0].float, sprite.sheet.size[1].float, 1.0)
+        mat4f().translate(pos).scale(sprite.sheet.size[0].float * scale.x, sprite.sheet.size[1].float * scale.y, 1.0)
     eg.renderer.draw(sprite.sheet.shape, sprite.sheet.image, inst)
 
 proc newMonoText*(size: (uint, uint); program: GLProgram; bmpStr: string): MonoText =
@@ -187,8 +194,8 @@ proc refreshProjection*(eg: YpeeEg; winSize: (int, int)) =
     eg.renderer.setUniform("projMat", eg.projectionCalc(width, height))
 
 proc newYpeeEg*(
-    screenSize: (int, int) = defaultScreenSize,
-    screenMode: ScreenMode = defaultScreenMode,
+    screenSize: (int, int) = defaultScreenSize;
+    screenMode: ScreenMode = defaultScreenMode;
 ): YpeeEg =
     result = new YpeeEg
 
@@ -230,7 +237,7 @@ proc newYpeeEg*(
 
     result.frameCounter = newFrameCounter()
 
-    result.renderer.clearColor = (0.1, 0.0, 0.1)
+    result.renderer.clearColor = (0.0, 0.0, 0.0)
     result.renderer.frame = newFrame(screenSize)
     let winSize = result.window.getSize()
     result.refreshProjection((winSize[0].int, winSize[1].int))
@@ -260,6 +267,14 @@ proc processEvents*(eg: YpeeEg) =
     
 proc nextFrame*(eg: YpeeEg): bool =
     eg.delta = eg.frameCounter.tick()
+    eg.time = eg.frameCounter.prevTime
     eg.window.glSwapWindow()
     eg.processEvents()
     return eg.running
+
+proc present*(eg: YpeeEg) =
+    case eg.screenMode
+        of smNoFrame:
+            eg.renderer.render()
+        else:
+            eg.renderer.renderFramed(eg.winSize)

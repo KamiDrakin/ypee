@@ -5,7 +5,7 @@ import glm
 import glrenderer
 
 proc main() =
-    var eg = newYpeeEg((320, 200), smFixed)
+    var eg = newYpeeEg((320, 200), smStretch)
 
     const testBmp = staticRead("../textures/rat.bmp")
     var
@@ -35,15 +35,17 @@ proc main() =
         if eg.inputs[inKeyRight]:
             moveVec.x += 1.0
         if moveVec.length2() > 0.0:
-           pPos += moveVec.normalize() * moveSpeed * eg.delta
+            pPos += moveVec.normalize() * moveSpeed * eg.delta
             
         #eg.renderer.setUniform("viewMat", mat4f().translate(-pPos + vec3f(128.0, 112.0, 0.0)))
-        testSprite.draw(
-            eg,
-            pos = pPos,
-            tint = vec4f(0.5 + sin(eg.time) / 2.0, 0.0, 0.5 + cos(eg.time) / 2.0, 1.0),
-            scale = vec2f(abs(tan(eg.time)), abs(1.0 / tan(eg.time)))
-        )
+        for i in countup(0, 99):
+            let i = i.float / 100.0
+            testSprite.draw(
+                eg,
+                pos = pPos + vec3f(0.0, 0.0, i),
+                tint = vec4f(0.5 + sin(eg.time * i) / 2.0, 0.0, 0.5 + cos(eg.time * i) / 2.0, 1.0),
+                scale = vec2f(abs(tan(eg.time * i)), abs(1.0 / tan(eg.time * i)))
+            )
         fpsText.draw(eg)
         eg.present()
     

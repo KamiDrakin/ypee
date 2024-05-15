@@ -5,7 +5,7 @@ import glm
 import glrenderer
 
 proc main() =
-    var eg = newYpeeEg((256, 224), smFixed)
+    var eg = newYpeeEg((320, 200), smFixed)
 
     const testBmp = staticRead("../textures/rat.bmp")
     var
@@ -18,7 +18,7 @@ proc main() =
     fpsText.setContent("0.0")
     fpsText.setPos(vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
 
-    var pPos = vec3f(128.0, 112.0, 0.0)
+    var pPos = vec3f(eg.screenSize[0].float / 2.0, eg.screenSize[1].float / 2.0, 0.0)
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
@@ -42,7 +42,7 @@ proc main() =
             eg,
             pos = pPos,
             tint = vec4f(0.5 + sin(eg.time) / 2.0, 0.0, 0.5 + cos(eg.time) / 2.0, 1.0),
-            scale = vec2f(0.3, 0.3)
+            scale = vec2f(abs(tan(eg.time)), abs(1.0 / tan(eg.time)))
         )
         fpsText.draw(eg)
         eg.present()

@@ -181,11 +181,9 @@ proc refreshProjection*(eg: YpeeEg; winSize: (int, int)) =
         of smNoFrame:
             width = winSize[0].float
             height = winSize[1].float
-        of smFixed:
+        of smFixed, smStretch:
             width = eg.screenSize[0].float
             height = eg.screenSize[1].float
-        of smStretch:
-            discard # todo
         of smAdjustWidth:
             eg.screenSize[0] = eg.screenSize[1] * winSize[0] div winSize[1]
             width = eg.screenSize[0].float
@@ -276,5 +274,7 @@ proc present*(eg: YpeeEg) =
     case eg.screenMode
         of smNoFrame:
             eg.renderer.render()
-        else:
-            eg.renderer.renderFramed(eg.winSize)
+        of smFixed, smAdjustWidth:
+            eg.renderer.renderFramed(eg.winSize, true)
+        of smStretch:
+            eg.renderer.renderFramed(eg.winSize, false)

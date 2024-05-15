@@ -320,7 +320,6 @@ proc use(renderer: GLRenderer; program: GLProgram) =
 proc use(renderer: GLRenderer; image: GLImage) =
     let imageSize = vec2f(image.size[0].GLfloat, image.size[1].GLfloat)
     renderer.setUniform("texSize", cast[ptr GLfloat](imageSize))
-    #glActiveTexture(GL_TEXTURE0)
     glBindTexture(GL_TEXTURE_2D, image.texture)
 
 proc use(renderer: GLRenderer; shape: GLShape) =
@@ -387,7 +386,7 @@ proc render*(renderer: GLRenderer) =
         glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape.nVertices, item.instances.len().GLsizei)
         itemPtr[].instances.clear()
 
-proc renderFramed*(renderer: GLRenderer; windowSize: (int, int)) =
+proc renderFramed*(renderer: GLRenderer; windowSize: (int, int); letterbox: bool) =
     let windowSize = (windowSize[0].GLsizei, windowSize[1].GLsizei)
     glBindFramebuffer(GL_FRAMEBUFFER, renderer.frame.fbo)
     glViewport(0, 0, renderer.frame.size[0], renderer.frame.size[1])
@@ -398,14 +397,16 @@ proc renderFramed*(renderer: GLRenderer; windowSize: (int, int)) =
     glClear(GL_COLOR_BUFFER_BIT)
     glDisable(GL_DEPTH_TEST)
     renderer.use(renderer.frame.shape)
-    #glActiveTexture(GL_TEXTURE0)
     glBindTexture(GL_TEXTURE_2D, renderer.frame.texture)
-    let
-        xRatio = renderer.frame.size[0].GLfloat / windowSize[0].GLfloat
-        yRatio = renderer.frame.size[1].GLfloat / windowSize[1].GLfloat
-        higherRatio = max(xRatio, yRatio)
-        scale = vec2f(xRatio, yRatio) / higherRatio
-    renderer.setUniform("frameScale", scale)
+    if letterbox:
+        let
+            xRatio = renderer.frame.size[0].GLfloat / windowSize[0].GLfloat
+            yRatio = renderer.frame.size[1].GLfloat / windowSize[1].GLfloat
+            higherRatio = max(xRatio, yRatio)
+            scale = vec2f(xRatio, yRatio) / higherRatio
+        renderer.setUniform("frameScale", scale)
+    else:
+        renderer.setUniform("frameScale", vec2f(1.0))
     renderer.applyUniforms()
     glDrawArrays(GL_TRIANGLES, 0, renderer.frame.shape.nVertices)
     renderer.usedProgram = nil

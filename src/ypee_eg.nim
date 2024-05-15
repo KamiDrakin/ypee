@@ -53,6 +53,7 @@ type
         projectionCalc: proc(width, height: float32): Mat4x4f
         renderer*: GLRenderer
         frameCounter*: FrameCounter
+        frameCap: int
         delta*: float
         time*: float
         inputs*: array[Input, bool]
@@ -234,6 +235,7 @@ proc newYpeeEg*(
     #eg.renderer.setUniform("viewMat", mat4f().translate(-128.0, -120.0, 50.0))
 
     result.frameCounter = newFrameCounter()
+    result.frameCap = 300
 
     result.renderer.clearColor = (0.0, 0.0, 0.0)
     result.renderer.frame = newFrame(screenSize)
@@ -264,6 +266,9 @@ proc processEvents*(eg: YpeeEg) =
                 discard
     
 proc nextFrame*(eg: YpeeEg): bool =
+    let delayTime = (1000.0 / eg.frameCap.float - getTicks().float + eg.frameCounter.prevTime * 1000.0)
+    if delayTime > 0.0:
+        delay(delayTime.uint32)
     eg.delta = eg.frameCounter.tick()
     eg.time = eg.frameCounter.prevTime
     eg.window.glSwapWindow()

@@ -5,7 +5,7 @@ import glm
 import glrenderer
 
 proc main() =
-    var eg = newYpeeEg(vec2i(320, 200), smStretch)
+    var eg = newYpeeEg(vec2i(320, 200), smFixed)
 
     const testBmp = staticRead("../textures/rat.bmp")
     var

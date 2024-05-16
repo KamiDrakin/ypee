@@ -14,6 +14,13 @@ type
         smFixed
         smStretch
         smAdjustWidth
+    Input* = enum
+        inKeyUp
+        inKeyDown
+        inKeyLeft
+        inKeyRight
+        inKeyM
+        inNone
     SpriteSheet* = ref object
         shape*: GLShape
         image*: GLImage
@@ -38,25 +45,21 @@ type
         prevTime: float
         frameTimer: float
         elapsed*: float
-    Input* = enum
-        inKeyUp
-        inKeyDown
-        inKeyLeft
-        inKeyRight
-        inNone
     YpeeEg* = ref object
         running: bool
         window*: WindowPtr
         winSize*: (int, int)
+        unadjustedScreenSize: (int, int)
         screenSize*: (int, int)
-        screenMode: ScreenMode
+        screenMode*: ScreenMode
         projectionCalc: proc(width, height: float32): Mat4x4f
         renderer*: GLRenderer
         frameCounter*: FrameCounter
         frameCap: int
         delta*: float
         time*: float
-        inputs*: array[Input, bool]
+        prevInputs: array[Input, bool]
+        inputs: array[Input, bool]
 
 const
     defaultScreenSize = (256, 224)
@@ -169,7 +172,17 @@ proc toInput(key: Scancode): Input =
         of SDL_SCANCODE_DOWN: inKeyDown
         of SDL_SCANCODE_LEFT: inKeyLeft
         of SDL_SCANCODE_RIGHT: inKeyRight
+        of SDL_SCANCODE_M: inKeyM
         else: inNone
+
+proc inpHeld*(eg: YpeeEg; key: Input): bool =
+    eg.inputs[key]
+
+proc inpPressed*(eg: YpeeEg; key: Input): bool =
+    not eg.prevInputs[key] and eg.inputs[key]
+
+proc inpReleased*(eg: YpeeEg; key: Input): bool =
+    eg.prevInputs[key] and not eg.inputs[key]
         
 proc refreshProjection*(eg: YpeeEg; winSize: (int, int)) =
     var
@@ -180,16 +193,14 @@ proc refreshProjection*(eg: YpeeEg; winSize: (int, int)) =
     eg.winSize = winSize
     case eg.screenMode
         of smNoFrame:
-            width = winSize[0].float
-            height = winSize[1].float
+            eg.screenSize = eg.winSize
         of smFixed, smStretch:
-            width = eg.screenSize[0].float
-            height = eg.screenSize[1].float
+            eg.screenSize = eg.unadjustedScreenSize
         of smAdjustWidth:
             eg.screenSize[0] = eg.screenSize[1] * winSize[0] div winSize[1]
-            width = eg.screenSize[0].float
-            height = eg.screenSize[1].float
-            eg.renderer.frame.resize(eg.screenSize)
+    width = eg.screenSize[0].float
+    height = eg.screenSize[1].float
+    eg.renderer.frame.resize(eg.screenSize)
     eg.renderer.setUniform("projMat", eg.projectionCalc(width, height))
 
 proc newYpeeEg*(
@@ -199,6 +210,7 @@ proc newYpeeEg*(
     result = new YpeeEg
 
     result.running = true
+    result.unadjustedScreenSize = screenSize
     result.screenSize = screenSize
     result.screenMode = screenMode
     result.projectionCalc =
@@ -259,9 +271,11 @@ proc processEvents*(eg: YpeeEg) =
                     let newHeight = windowEvent.data2
                     eg.refreshProjection((newWidth.int, newHeight.int))
             of KeyDown:
-                eg.inputs[toInput(evt.key.keysym.scancode)] = true
+                let key = toInput(evt.key.keysym.scancode)
+                eg.inputs[key] = true
             of KeyUp:
-                eg.inputs[toInput(evt.key.keysym.scancode)] = false
+                let key = toInput(evt.key.keysym.scancode)
+                eg.inputs[key] = false
             else:
                 discard
     
@@ -272,13 +286,14 @@ proc nextFrame*(eg: YpeeEg): bool =
     eg.delta = eg.frameCounter.tick()
     eg.time = eg.frameCounter.prevTime
     eg.window.glSwapWindow()
+    eg.prevInputs = eg.inputs
     eg.processEvents()
     return eg.running
 
 proc present*(eg: YpeeEg) =
     case eg.screenMode
         of smNoFrame:
-            eg.renderer.render()
+            eg.renderer.render(eg.winSize)
         of smFixed, smAdjustWidth:
             eg.renderer.renderFramed(eg.winSize, true)
         of smStretch:

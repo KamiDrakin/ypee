@@ -364,7 +364,8 @@ proc draw*(renderer: GLRenderer; shape: GLShape; image: GLImage; instances: GLIn
     else:
         renderer.toDraw[searchPos].instances.add(instances)
 
-proc render*(renderer: GLRenderer) =
+proc render(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
+    glViewport(0, 0, bufferSize[0], bufferSize[1])
     glClearColor(renderer.clearColor[0], renderer.clearColor[1], renderer.clearColor[2], 1.0)
     glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
     glEnable(GL_DEPTH_TEST)
@@ -386,11 +387,13 @@ proc render*(renderer: GLRenderer) =
         glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape.nVertices, item.instances.len().GLsizei)
         itemPtr[].instances.clear()
 
+proc render*(renderer: GLRenderer; bufferSize: (int, int)) =
+    renderer.render((bufferSize[0].GLsizei, bufferSize[1].GLsizei))
+
 proc renderFramed*(renderer: GLRenderer; windowSize: (int, int); letterbox: bool) =
     let windowSize = (windowSize[0].GLsizei, windowSize[1].GLsizei)
     glBindFramebuffer(GL_FRAMEBUFFER, renderer.frame.fbo)
-    glViewport(0, 0, renderer.frame.size[0], renderer.frame.size[1])
-    renderer.render()
+    renderer.render(renderer.frame.size)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     glViewport(0, 0, windowSize[0], windowSize[1])
     glClearColor(0.0, 0.0, 0.0, 1.0)

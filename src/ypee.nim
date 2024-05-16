@@ -16,7 +16,6 @@ proc main() =
     const fontBmp = staticRead("../textures/font.bmp")
     var fpsText = newMonoText((8u, 8u), eg.renderer.program(0), fontBmp)
     fpsText.setContent("0.0")
-    fpsText.setPos(vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
 
     var pPos = vec3f(eg.screenSize[0].float / 2.0, eg.screenSize[1].float / 2.0, 0.0)
 
@@ -26,19 +25,34 @@ proc main() =
 
         const moveSpeed = 64.0
         var moveVec = vec3f(0.0)
-        if eg.inputs[inKeyDown]:
+        if eg.inpHeld(inKeyDown):
             moveVec.y -= 1.0
-        if eg.inputs[inKeyUp]:
+        if eg.inpHeld(inKeyUp):
             moveVec.y += 1.0
-        if eg.inputs[inKeyLeft]:
+        if eg.inpHeld(inKeyLeft):
             moveVec.x -= 1.0
-        if eg.inputs[inKeyRight]:
+        if eg.inpHeld(inKeyRight):
             moveVec.x += 1.0
         if moveVec.length2() > 0.0:
             pPos += moveVec.normalize() * moveSpeed * eg.delta
+
+        if eg.inpPressed(inKeyM):
+            eg.screenMode = case eg.screenMode
+                of smNoFrame:
+                    smFixed
+                of smFixed:
+                    smStretch
+                of smStretch:
+                    smAdjustWidth
+                of smAdjustWidth:
+                    smNoFrame
+            eg.refreshProjection(eg.winSize)
+            echo "Screen mode: ", eg.screenMode
+            
+        fpsText.setPos(vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
             
         #eg.renderer.setUniform("viewMat", mat4f().translate(-pPos + vec3f(128.0, 112.0, 0.0)))
-        for i in countup(0, 99):
+        for i in countup(1, 100):
             let i = i.float / 100.0
             testSprite.draw(
                 eg,

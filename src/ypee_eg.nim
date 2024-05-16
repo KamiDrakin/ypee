@@ -1,7 +1,6 @@
 import glm
 import sdl2
 
-#import custom_utils
 import glrenderer
 
 export sdl2
@@ -15,12 +14,22 @@ type
         smStretch
         smAdjustWidth
     Input* = enum
+        inMouseL
+        inMouseR
+        inMouseM
         inKeyUp
         inKeyDown
         inKeyLeft
         inKeyRight
         inKeyM
         inNone
+    MouseState = object
+        prevPos: Vec2i
+        rawPos*: Vec2i
+        rawDelta*: Vec2i
+        prevScreenPos: Vec2i
+        screenPos*: Vec2i
+        screenDelta*: Vec2i
     SpriteSheet* = ref object
         shape*: GLShape
         image*: GLImage
@@ -48,9 +57,9 @@ type
     YpeeEg* = ref object
         running: bool
         window*: WindowPtr
-        winSize*: (int, int)
-        unadjustedScreenSize: (int, int)
-        screenSize*: (int, int)
+        winSize*: Vec2i
+        unadjustedScreenSize: Vec2i
+        screenSize*: Vec2i
         screenMode*: ScreenMode
         projectionCalc: proc(width, height: float32): Mat4x4f
         renderer*: GLRenderer
@@ -60,11 +69,51 @@ type
         time*: float
         prevInputs: array[Input, bool]
         inputs: array[Input, bool]
+        mouse*: MouseState
 
 const
-    defaultScreenSize = (256, 224)
+    defaultScreenSize = vec2i(320, 200)
     defaultScreenMode = smFixed
     defaultScale = 3
+
+proc toInput(key: Scancode): Input =
+    case key
+        of SDL_SCANCODE_UP: inKeyUp
+        of SDL_SCANCODE_DOWN: inKeyDown
+        of SDL_SCANCODE_LEFT: inKeyLeft
+        of SDL_SCANCODE_RIGHT: inKeyRight
+        of SDL_SCANCODE_M: inKeyM
+        else: inNone
+
+proc toInputMouse(mb: uint8): Input =
+    case mb
+        of 1: inMouseL
+        of 3: inMouseR
+        of 2: inMouseM
+        else: inNone
+
+proc updatePos(mouse: var MouseState; rawPos: Vec2i; eg: YpeeEg) =
+    mouse.rawPos = rawPos
+    mouse.screenPos = mouse.rawPos * eg.screenSize / eg.winSize
+    if eg.screenMode == smFixed: # optimize this crime against all reason
+        let
+            screenPos = vec2f(mouse.screenPos)
+            screenSize = vec2f(eg.screenSize)
+            winSize = vec2f(eg.winSize)
+            ratio = screenSize / winSize
+            higherRatio = max(ratio.x, ratio.y)
+            scale = ratio / higherRatio
+            adjustedPos = screenPos / scale
+            offset = (screenSize / scale - screenSize) / 2.0
+            newScreenPos = adjustedPos - offset
+        mouse.screenPos = vec2i(newScreenPos.floor)
+    mouse.screenPos = vec2i(mouse.screenPos.x.clamp(0, eg.screenSize.x - 1), mouse.screenPos.y.clamp(0, eg.screenSize.y - 1))
+
+proc clearDeltas(mouse: var MouseState; eg: YpeeEg) =
+    mouse.rawDelta = mouse.rawPos - mouse.rawPos
+    mouse.prevPos = mouse.rawPos
+    mouse.screenDelta = mouse.screenPos - mouse.prevScreenPos
+    mouse.prevScreenPos = mouse.screenPos
 
 proc newSpriteSheet*(size: (uint, uint); program: GLProgram; bmpStr: string): SpriteSheet =
     result = new SpriteSheet
@@ -166,15 +215,6 @@ proc getFps*(fc: FrameCounter): float =
     fc.frameTimer = 0.0
     fc.elapsed = 0.0
 
-proc toInput(key: Scancode): Input =
-    case key
-        of SDL_SCANCODE_UP: inKeyUp
-        of SDL_SCANCODE_DOWN: inKeyDown
-        of SDL_SCANCODE_LEFT: inKeyLeft
-        of SDL_SCANCODE_RIGHT: inKeyRight
-        of SDL_SCANCODE_M: inKeyM
-        else: inNone
-
 proc inpHeld*(eg: YpeeEg; key: Input): bool =
     eg.inputs[key]
 
@@ -184,11 +224,11 @@ proc inpPressed*(eg: YpeeEg; key: Input): bool =
 proc inpReleased*(eg: YpeeEg; key: Input): bool =
     eg.prevInputs[key] and not eg.inputs[key]
         
-proc refreshProjection*(eg: YpeeEg; winSize: (int, int)) =
+proc refreshProjection*(eg: YpeeEg; winSize: Vec2i) =
     var
         width: float
         height: float
-    if winSize[0] <= 0 or winSize[1] <= 0:
+    if winSize.x <= 0 or winSize.y <= 0:
         return
     eg.winSize = winSize
     case eg.screenMode
@@ -197,14 +237,14 @@ proc refreshProjection*(eg: YpeeEg; winSize: (int, int)) =
         of smFixed, smStretch:
             eg.screenSize = eg.unadjustedScreenSize
         of smAdjustWidth:
-            eg.screenSize[0] = eg.screenSize[1] * winSize[0] div winSize[1]
-    width = eg.screenSize[0].float
-    height = eg.screenSize[1].float
+            eg.screenSize.x = eg.screenSize.y * winSize.x div winSize.y
+    width = eg.screenSize.x.float
+    height = eg.screenSize.y.float
     eg.renderer.frame.resize(eg.screenSize)
     eg.renderer.setUniform("projMat", eg.projectionCalc(width, height))
 
 proc newYpeeEg*(
-    screenSize: (int, int) = defaultScreenSize;
+    screenSize: Vec2i = defaultScreenSize;
     screenMode: ScreenMode = defaultScreenMode;
 ): YpeeEg =
     result = new YpeeEg
@@ -222,7 +262,7 @@ proc newYpeeEg*(
     result.window = createWindow(
         "YPEE",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        (screenSize[0] * defaultScale).cint, (screenSize[1] * defaultScale).cint,
+        (screenSize.x * defaultScale).cint, (screenSize.y * defaultScale).cint,
         SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE
     )
     #var context = eg.window.glCreateContext()
@@ -252,7 +292,9 @@ proc newYpeeEg*(
     result.renderer.clearColor = (0.0, 0.0, 0.0)
     result.renderer.frame = newFrame(screenSize)
     let winSize = result.window.getSize()
-    result.refreshProjection((winSize[0].int, winSize[1].int))
+    result.refreshProjection(cast[Vec2i](winSize))
+
+    showCursor(false)
 
 proc destroy*(eg: YpeeEg) =
     eg.window.destroy()
@@ -269,13 +311,22 @@ proc processEvents*(eg: YpeeEg) =
                 if windowEvent.event == WindowEvent_Resized:
                     let newWidth = windowEvent.data1
                     let newHeight = windowEvent.data2
-                    eg.refreshProjection((newWidth.int, newHeight.int))
+                    eg.refreshProjection(vec2i(newWidth.int32, newHeight.int32))
             of KeyDown:
-                let key = toInput(evt.key.keysym.scancode)
+                let key = toInput(evt.key().keysym.scancode)
                 eg.inputs[key] = true
             of KeyUp:
-                let key = toInput(evt.key.keysym.scancode)
+                let key = toInput(evt.key().keysym.scancode)
                 eg.inputs[key] = false
+            of MouseButtonDown:
+                let button = toInputMouse(evt.button().button)
+                eg.inputs[button] = true
+            of MouseButtonUp:
+                let button = toInputMouse(evt.button().button)
+                eg.inputs[button] = false
+            of MouseMotion:
+                let motion = evt.evMouseMotion()
+                eg.mouse.updatePos(vec2i(motion.x.int32, eg.winSize.y - motion.y.int32 - 1), eg)
             else:
                 discard
     
@@ -287,6 +338,7 @@ proc nextFrame*(eg: YpeeEg): bool =
     eg.time = eg.frameCounter.prevTime
     eg.window.glSwapWindow()
     eg.prevInputs = eg.inputs
+    eg.mouse.clearDeltas(eg)
     eg.processEvents()
     return eg.running
 

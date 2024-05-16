@@ -5,7 +5,7 @@ import glm
 import glrenderer
 
 proc main() =
-    var eg = newYpeeEg((320, 200), smStretch)
+    var eg = newYpeeEg(vec2i(320, 200), smStretch)
 
     const testBmp = staticRead("../textures/rat.bmp")
     var
@@ -17,24 +17,31 @@ proc main() =
     var fpsText = newMonoText((8u, 8u), eg.renderer.program(0), fontBmp)
     fpsText.setContent("0.0")
 
-    var pPos = vec3f(eg.screenSize[0].float / 2.0, eg.screenSize[1].float / 2.0, 0.0)
+    const cursorBmp = staticRead("../textures/cursor.bmp")
+    var
+        cursorSheet = newSpriteSheet((0u, 0u), eg.renderer.program(0), cursorBmp)
+        cursorSprite = newSprite(cursorSheet, (0u, 0u))
+
+    var pPos = vec3f(vec2f(eg.screenSize) / 2.0, 0.0)
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
             fpsText.setContent($eg.frameCounter.getFps())
 
-        const moveSpeed = 64.0
-        var moveVec = vec3f(0.0)
-        if eg.inpHeld(inKeyDown):
-            moveVec.y -= 1.0
-        if eg.inpHeld(inKeyUp):
-            moveVec.y += 1.0
-        if eg.inpHeld(inKeyLeft):
-            moveVec.x -= 1.0
-        if eg.inpHeld(inKeyRight):
-            moveVec.x += 1.0
-        if moveVec.length2() > 0.0:
-            pPos += moveVec.normalize() * moveSpeed * eg.delta
+        #const moveSpeed = 64.0
+        #var moveVec = vec3f(0.0)
+        #if eg.inpHeld(inKeyDown):
+        #    moveVec.y -= 1.0
+        #if eg.inpHeld(inKeyUp):
+        #    moveVec.y += 1.0
+        #if eg.inpHeld(inKeyLeft):
+        #    moveVec.x -= 1.0
+        #if eg.inpHeld(inKeyRight):
+        #    moveVec.x += 1.0
+        #if moveVec.length2() > 0.0:
+        #    pPos += moveVec.normalize() * moveSpeed * eg.delta
+        if eg.inpHeld(inMouseL):
+            pPos += vec3f(vec2f(eg.mouse.screenDelta), 0.0)
 
         if eg.inpPressed(inKeyM):
             eg.screenMode = case eg.screenMode
@@ -60,6 +67,10 @@ proc main() =
                 tint = vec4f(0.5 + sin(eg.time * i) / 2.0, 0.0, 0.5 + cos(eg.time * i) / 2.0, 1.0),
                 scale = vec2f(abs(tan(eg.time * i)), abs(1.0 / tan(eg.time * i)))
             )
+        cursorSprite.draw(
+            eg,
+            pos = vec3f(eg.mouse.screenPos.x.float + 6.0, eg.mouse.screenPos.y.float - 5.0, 100.0)
+        )
         fpsText.draw(eg)
         eg.present()
     

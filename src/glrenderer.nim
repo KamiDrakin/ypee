@@ -242,9 +242,9 @@ func drawItemCmp(x, y: GLDrawItem): int =
         return 1
     return 0
 
-proc resize*(frame: GLFrame; size: (int, int)) =
+proc resize*(frame: GLFrame; size: Vec2i) =
     if frame.fbo == 0: return
-    let size = (size[0].GLsizei, size[1].GLsizei)
+    let size = (size.x.GLsizei, size.y.GLsizei)
     frame.size = size
 
     glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo)
@@ -264,7 +264,7 @@ proc resize*(frame: GLFrame; size: (int, int)) =
     assert glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
-proc newFrame*(size: (int, int)): GLFrame =
+proc newFrame*(size: Vec2i): GLFrame =
     result = new GLFrame
 
     const
@@ -387,11 +387,11 @@ proc render(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
         glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape.nVertices, item.instances.len().GLsizei)
         itemPtr[].instances.clear()
 
-proc render*(renderer: GLRenderer; bufferSize: (int, int)) =
-    renderer.render((bufferSize[0].GLsizei, bufferSize[1].GLsizei))
+proc render*(renderer: GLRenderer; bufferSize: Vec2i) =
+    renderer.render((bufferSize.x.GLsizei, bufferSize.y.GLsizei))
 
-proc renderFramed*(renderer: GLRenderer; windowSize: (int, int); letterbox: bool) =
-    let windowSize = (windowSize[0].GLsizei, windowSize[1].GLsizei)
+proc renderFramed*(renderer: GLRenderer; windowSize: Vec2i; letterbox: bool) =
+    let windowSize = (windowSize.x.GLsizei, windowSize.y.GLsizei)
     glBindFramebuffer(GL_FRAMEBUFFER, renderer.frame.fbo)
     renderer.render(renderer.frame.size)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)

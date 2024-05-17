@@ -46,8 +46,6 @@ type
         width*: float
         changed: bool
     Camera* = ref object
-        pos: Vec3f
-        rot: Vec3f
         viewMat: Mat4x4f
     FrameCounter = ref object
         frameCap: int
@@ -182,6 +180,14 @@ proc draw*(text: MonoText; eg: YpeeEg) =
             text.instances.add(inst)
         text.changed = false
     eg.renderer.draw(text.sheet.shape, text.sheet.image, text.instances)
+
+proc newCamera*(viewMat: Mat4x4f): Camera =
+    result = new Camera
+
+    result.viewMat = viewMat
+
+proc translate*(cam: Camera; vec: Vec3f) =
+    cam.viewMat.translateInpl(vec)
 
 proc newFrameCounter(): FrameCounter =
     result = new FrameCounter
@@ -359,3 +365,9 @@ proc layer*(eg: YpeeEg) =
             eg.renderer.layerFramed()
         of smStretch:
             eg.renderer.layerFramed()
+
+proc beginCamera*(eg: YpeeEg; cam: Camera) =
+    eg.renderer.setUniform("viewMat", cam.viewMat)
+
+proc endCamera*(eg: YpeeEg) =
+    eg.renderer.setUniform("viewMat", mat4f())

@@ -5,7 +5,7 @@ import glm
 import glrenderer
 
 proc main() =
-    var eg = newYpeeEg(vec2i(320, 200), smFixed)
+    var eg = newYpeeEg(vec2i(320, 200), smFixed, -1)
 
     const testBmp = staticRead("../textures/rat.bmp")
     var
@@ -58,22 +58,24 @@ proc main() =
             
         fpsText.setPos(vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
             
-        #eg.renderer.setUniform("viewMat", mat4f().translate(-pPos + vec3f(128.0, 112.0, 0.0)))
+        eg.renderer.setUniform("viewMat", mat4f().translate(pPos))
         for i in countup(1, 100):
             let i = i.float / 100.0
             testSprite.draw(
                 eg,
-                pos = pPos + vec3f(0.0, 0.0, i),
+                pos = vec3f(128.0, 112.0, i),
                 tint = vec4f(0.5 + sin(eg.time * i) / 2.0, 0.0, 0.5 + cos(eg.time * i) / 2.0, 1.0),
                 scale = vec2f(abs(tan(eg.time * i)), abs(1.0 / tan(eg.time * i)))
             )
+        eg.layer()
+        eg.renderer.setUniform("viewMat", mat4f())
         cursorSprite.draw(
             eg,
             pos = vec3f(eg.mouse.screenPos.x.float + 6.0, eg.mouse.screenPos.y.float - 5.0, 100.0),
             tint = vec4f(0.8, 0.4, 0.2, 1.0)
         )
         fpsText.draw(eg)
-        eg.present()
+        eg.layer()
     
     eg.destroy()
 

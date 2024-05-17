@@ -245,6 +245,7 @@ proc refreshProjection*(eg: YpeeEg; winSize: Vec2i) =
 proc newYpeeEg*(
     screenSize: Vec2i = defaultScreenSize;
     screenMode: ScreenMode = defaultScreenMode;
+    fpsCap: int = -1;
 ): YpeeEg =
     result = new YpeeEg
 
@@ -269,7 +270,7 @@ proc newYpeeEg*(
     discard glSetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3)
     discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE)
     discard glCreateContext(result.window)
-    discard glSetSwapInterval(1)
+    discard glSetSwapInterval(if fpsCap == -1: 1 else: 0)
 
     result.renderer = newRenderer()
     const
@@ -286,7 +287,7 @@ proc newYpeeEg*(
     #eg.renderer.setUniform("viewMat", mat4f().translate(-128.0, -120.0, 50.0))
 
     result.frameCounter = newFrameCounter()
-    result.frameCounter.frameCap = 300
+    result.frameCounter.frameCap = fpsCap
 
     result.renderer.clearColor = (0.0, 0.0, 0.0)
     result.renderer.frame = newFrame(screenSize)
@@ -332,17 +333,29 @@ proc processEvents*(eg: YpeeEg) =
 proc nextFrame*(eg: YpeeEg): bool =
     eg.delta = eg.frameCounter.tick()
     eg.time = eg.frameCounter.prevTime
+    case eg.screenMode
+        of smNoFrame:
+            discard
+        of smFixed, smAdjustWidth:
+            eg.renderer.renderFrame(eg.winSize, true)
+        of smStretch:
+            eg.renderer.renderFrame(eg.winSize, false)
     eg.window.glSwapWindow()
+    case eg.screenMode
+        of smNoFrame:
+            eg.renderer.clear()
+        of smFixed, smAdjustWidth, smStretch:
+            eg.renderer.clearFrame()
     eg.prevInputs = eg.inputs
     eg.mouse.clearDeltas(eg)
     eg.processEvents()
     return eg.running
 
-proc present*(eg: YpeeEg) =
+proc layer*(eg: YpeeEg) =
     case eg.screenMode
         of smNoFrame:
-            eg.renderer.render(eg.winSize)
+            eg.renderer.layer(eg.winSize)
         of smFixed, smAdjustWidth:
-            eg.renderer.renderFramed(eg.winSize, true)
+            eg.renderer.layerFramed()
         of smStretch:
-            eg.renderer.renderFramed(eg.winSize, false)
+            eg.renderer.layerFramed()

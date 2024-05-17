@@ -1,7 +1,7 @@
 import glm
 
 func contains*[T](rect: Vec4[T]; pt: Vec2[T]): bool =
-    pt.x >= rect.x and pt.x <= rect.w and pt.y >= rect.y and pt.y <= rect.h
+    pt.x >= rect.x and pt.x <= rect.z and pt.y >= rect.y and pt.y <= rect.w
 
 func bmpDataFlip*(data: string; width: int): string =
     result = ""

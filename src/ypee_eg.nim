@@ -1,6 +1,7 @@
 import glm
 import sdl2
 
+import custom_utils
 import glrenderer
 
 type
@@ -19,8 +20,9 @@ type
         inKeyDown
         inKeyLeft
         inKeyRight
-        inKeyM
+        inKeyEsc
         inKeyF11
+        inKeyM
         inNone
     MouseState = object
         prevPos: Vec2i
@@ -54,7 +56,7 @@ type
         frameTimer: float
         elapsed*: float
     YpeeEg* = ref object
-        running: bool
+        running*: bool
         window*: WindowPtr
         winSize*: Vec2i
         unadjustedScreenSize: Vec2i
@@ -81,8 +83,9 @@ proc toInput(key: Scancode): Input =
         of SDL_SCANCODE_DOWN: inKeyDown
         of SDL_SCANCODE_LEFT: inKeyLeft
         of SDL_SCANCODE_RIGHT: inKeyRight
-        of SDL_SCANCODE_M: inKeyM
+        of SDL_SCANCODE_ESCAPE: inKeyEsc
         of SDL_SCANCODE_F11: inKeyF11
+        of SDL_SCANCODE_M: inKeyM
         else: inNone
 
 proc toInputMouse(mb: uint8): Input =
@@ -102,7 +105,13 @@ proc updatePos(mouse: var MouseState; rawPos: Vec2i; eg: YpeeEg) =
             adjustedPos = mouse.screenPos * higherRatio / unratio
             offset = (eg.screenSize * higherRatio / unratio - eg.screenSize) / 2
         mouse.screenPos = adjustedPos - offset
-    mouse.screenPos = vec2i(mouse.screenPos.clamp(vec2i(0), eg.screenSize - vec2i(1)))
+        if not vec4i(0, 0, eg.screenSize - 1).contains(mouse.screenPos):
+            let
+                rawOffset = offset * eg.winSize / eg.screenSize * unratio / higherRatio
+                raw = (adjustedPos * eg.winSize / eg.screenSize * unratio / higherRatio)
+                    .clamp(rawOffset, eg.winSize - rawOffset - 1)
+            eg.window.warpMouseInWindow(raw.x, eg.winSize.y - raw.y - 1)
+    mouse.screenPos = vec2i(mouse.screenPos.clamp(vec2i(0), eg.screenSize - 1))
 
 proc clearDeltas(mouse: var MouseState; eg: YpeeEg) =
     mouse.rawDelta = mouse.rawPos - mouse.rawPos
@@ -306,6 +315,7 @@ proc newYpeeEg*(
     result.refreshProjection(cast[Vec2i](winSize))
 
     showCursor(false)
+    discard setRelativeMouseMode(true.Bool32)
 
 proc destroy*(eg: YpeeEg) =
     eg.window.destroy()

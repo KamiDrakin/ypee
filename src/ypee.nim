@@ -54,6 +54,9 @@ proc main() =
 
         if eg.inpPressed(inKeyF11):
             eg.toggleFullscreen()
+
+        if eg.inpPressed(inKeyEsc):
+            eg.running = false
             
         fpsText.setPos(vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
             

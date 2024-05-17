@@ -12,7 +12,6 @@ proc main() =
 
     const testBmp = staticRead("../textures/rat.bmp")
     var
-        #testSheet = newSpriteSheet((16u, 16u), eg.renderer.program(0), testBmp)
         testSheet = newSpriteSheet(vec2i(0, 0), eg.renderer.program(0), testBmp)
         testSprite = newSprite(testSheet, vec2i(0, 0), vec2i(0, 0))
 
@@ -46,16 +45,15 @@ proc main() =
 
         if eg.inpPressed(inKeyM):
             eg.screenMode = case eg.screenMode
-                of smNoFrame:
-                    smFixed
-                of smFixed:
-                    smStretch
-                of smStretch:
-                    smAdjustWidth
-                of smAdjustWidth:
-                    smNoFrame
+                of smNoFrame: smFixed
+                of smFixed: smStretch
+                of smStretch: smAdjustWidth
+                of smAdjustWidth: smNoFrame
             eg.refreshProjection(eg.winSize)
             echo "Screen mode: ", eg.screenMode
+
+        if eg.inpPressed(inKeyF11):
+            eg.toggleFullscreen()
             
         fpsText.setPos(vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
             

@@ -3,8 +3,6 @@ import sdl2
 
 import glrenderer
 
-export sdl2
-
 type
     ProgramIndex = enum
         piBase
@@ -22,6 +20,7 @@ type
         inKeyLeft
         inKeyRight
         inKeyM
+        inKeyF11
         inNone
     MouseState = object
         prevPos: Vec2i
@@ -61,6 +60,7 @@ type
         unadjustedScreenSize: Vec2i
         screenSize*: Vec2i
         screenMode*: ScreenMode
+        fullscreen: bool
         projectionCalc: proc(width, height: float32): Mat4x4f
         renderer*: GLRenderer
         frameCounter*: FrameCounter
@@ -82,6 +82,7 @@ proc toInput(key: Scancode): Input =
         of SDL_SCANCODE_LEFT: inKeyLeft
         of SDL_SCANCODE_RIGHT: inKeyRight
         of SDL_SCANCODE_M: inKeyM
+        of SDL_SCANCODE_F11: inKeyF11
         else: inNone
 
 proc toInputMouse(mb: uint8): Input =
@@ -375,3 +376,7 @@ proc beginCamera*(eg: YpeeEg; cam: Camera) =
 
 proc endCamera*(eg: YpeeEg) =
     eg.renderer.setUniform("viewMat", mat4f())
+
+proc toggleFullscreen*(eg: YpeeEg) =
+    eg.fullscreen = not eg.fullscreen
+    discard eg.window.setFullscreen(if eg.fullscreen: SDL_WINDOW_FULLSCREEN_DESKTOP else: 0)

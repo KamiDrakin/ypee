@@ -100,17 +100,20 @@ proc updatePos(mouse: var MouseState; rawPos: Vec2i; eg: YpeeEg) =
     mouse.screenPos = mouse.rawPos * eg.screenSize / eg.winSize
     if eg.screenMode == smFixed:
         let
-            unratio = eg.screenSize * eg.winSize.yx() #idk what to call it
-            higherRatio = max(unratio.x, unratio.y)
-            adjustedPos = mouse.screenPos * higherRatio / unratio
-            offset = (eg.screenSize * higherRatio / unratio - eg.screenSize) / 2
-        mouse.screenPos = adjustedPos - offset
+            screenSize = vec2f(eg.screenSize)
+            winSize = vec2f(eg.winSize)
+            screenPos = vec2f(mouse.screenPos)
+            ratio = screenSize / winSize
+            higherRatio = max(ratio.x, ratio.y)
+            scale = higherRatio / ratio 
+            adjustedPos = screenPos * scale
+            offset = screenSize * (scale - 1.0) / 2.0
+        mouse.screenPos = vec2i(adjustedPos) - vec2i(offset)
         if not vec4i(0, 0, eg.screenSize - 1).contains(mouse.screenPos):
             let
-                rawOffset = offset * eg.winSize / eg.screenSize * unratio / higherRatio
-                raw = (adjustedPos * eg.winSize / eg.screenSize * unratio / higherRatio)
-                    .clamp(rawOffset, eg.winSize - rawOffset - 1)
-            eg.window.warpMouseInWindow(raw.x, eg.winSize.y - raw.y - 1)
+                rawOffset = (winSize - winSize / scale) / 2.0
+                rawPos = vec2f(mouse.rawPos).clamp(rawOffset, winSize - rawOffset)
+            eg.window.warpMouseInWindow(rawPos.x.cint, (winSize.y - rawPos.y - 1).cint)
     mouse.screenPos = vec2i(mouse.screenPos.clamp(vec2i(0), eg.screenSize - 1))
 
 proc clearDeltas(mouse: var MouseState; eg: YpeeEg) =

@@ -69,7 +69,8 @@ proc main() =
             )
         cursorSprite.draw(
             eg,
-            pos = vec3f(eg.mouse.screenPos.x.float + 6.0, eg.mouse.screenPos.y.float - 5.0, 100.0)
+            pos = vec3f(eg.mouse.screenPos.x.float + 6.0, eg.mouse.screenPos.y.float - 5.0, 100.0),
+            tint = vec4f(0.8, 0.4, 0.2, 1.0)
         )
         fpsText.draw(eg)
         eg.present()

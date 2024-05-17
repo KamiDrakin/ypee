@@ -50,6 +50,7 @@ type
         rot: Vec3f
         viewMat: Mat4x4f
     FrameCounter = ref object
+        frameCap: int
         frameCount: int
         prevTime: float
         frameTimer: float
@@ -64,7 +65,6 @@ type
         projectionCalc: proc(width, height: float32): Mat4x4f
         renderer*: GLRenderer
         frameCounter*: FrameCounter
-        frameCap: int
         delta*: float
         time*: float
         prevInputs: array[Input, bool]
@@ -95,19 +95,14 @@ proc toInputMouse(mb: uint8): Input =
 proc updatePos(mouse: var MouseState; rawPos: Vec2i; eg: YpeeEg) =
     mouse.rawPos = rawPos
     mouse.screenPos = mouse.rawPos * eg.screenSize / eg.winSize
-    if eg.screenMode == smFixed: # optimize this crime against all reason
+    if eg.screenMode == smFixed:
         let
-            screenPos = vec2f(mouse.screenPos)
-            screenSize = vec2f(eg.screenSize)
-            winSize = vec2f(eg.winSize)
-            ratio = screenSize / winSize
-            higherRatio = max(ratio.x, ratio.y)
-            scale = ratio / higherRatio
-            adjustedPos = screenPos / scale
-            offset = (screenSize / scale - screenSize) / 2.0
-            newScreenPos = adjustedPos - offset
-        mouse.screenPos = vec2i(newScreenPos.floor)
-    mouse.screenPos = vec2i(mouse.screenPos.x.clamp(0, eg.screenSize.x - 1), mouse.screenPos.y.clamp(0, eg.screenSize.y - 1))
+            unratio = eg.screenSize * eg.winSize.yx() #idk what to call it
+            higherRatio = max(unratio.x, unratio.y)
+            adjustedPos = mouse.screenPos * higherRatio / unratio
+            offset = (eg.screenSize * higherRatio / unratio - eg.screenSize) / 2
+        mouse.screenPos = adjustedPos - offset
+    mouse.screenPos = vec2i(mouse.screenPos.clamp(vec2i(0), eg.screenSize - vec2i(1)))
 
 proc clearDeltas(mouse: var MouseState; eg: YpeeEg) =
     mouse.rawDelta = mouse.rawPos - mouse.rawPos
@@ -191,6 +186,7 @@ proc draw*(text: MonoText; eg: YpeeEg) =
 proc newFrameCounter(): FrameCounter =
     result = new FrameCounter
 
+    result.frameCap = 0
     result.frameCount = 0
     result.prevTime = 0.0
     result.frameTimer = 0.0
@@ -198,11 +194,14 @@ proc newFrameCounter(): FrameCounter =
 
 proc tick(fc: FrameCounter): float =
     fc.frameCount += 1
-    let
-        time = sdl2.getTicks().float / 1000.0
-        delta = time - fc.prevTime
+    var delta = getTicks().float / 1000.0 - fc.prevTime
+    if fc.frameCap > 0:
+        let delayTime = 1.0 / fc.frameCap.float - delta
+        if delayTime > 0.0:
+            delta += delayTime
+            delay((delayTime * 1000.0).uint32)
     fc.frameTimer += delta
-    fc.prevTime = time
+    fc.prevTime += delta
     if fc.frameTimer >= 1.0:
         fc.frameTimer -= 1.0
         fc.elapsed += 1.0
@@ -287,7 +286,7 @@ proc newYpeeEg*(
     #eg.renderer.setUniform("viewMat", mat4f().translate(-128.0, -120.0, 50.0))
 
     result.frameCounter = newFrameCounter()
-    result.frameCap = 300
+    result.frameCounter.frameCap = 300
 
     result.renderer.clearColor = (0.0, 0.0, 0.0)
     result.renderer.frame = newFrame(screenSize)
@@ -331,9 +330,6 @@ proc processEvents*(eg: YpeeEg) =
                 discard
     
 proc nextFrame*(eg: YpeeEg): bool =
-    let delayTime = (1000.0 / eg.frameCap.float - getTicks().float + eg.frameCounter.prevTime * 1000.0)
-    if delayTime > 0.0:
-        delay(delayTime.uint32)
     eg.delta = eg.frameCounter.tick()
     eg.time = eg.frameCounter.prevTime
     eg.window.glSwapWindow()

@@ -12,5 +12,5 @@ uniform vec2 frameScale;
 void main() {
     gl_Position = vec4(frameScale * vPos.xy, 0.0, 1.0);
     color = vec4(vColor, 1.0);
-    texCoords = vTexCoords;
+    texCoords = vTexCoords; // slightly off i guess
 }  

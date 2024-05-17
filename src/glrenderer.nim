@@ -366,7 +366,7 @@ proc draw*(renderer: GLRenderer; shape: GLShape; image: GLImage; instances: GLIn
 
 proc layer(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
     glViewport(0, 0, bufferSize[0], bufferSize[1])
-    glClear(#[GL_COLOR_BUFFER_BIT or]# GL_DEPTH_BUFFER_BIT)
+    glClear(GL_DEPTH_BUFFER_BIT)
     glEnable(GL_DEPTH_TEST)
     renderer.toDraw.sort(drawItemCmp)
     var
@@ -388,30 +388,6 @@ proc layer(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
 
 proc layer*(renderer: GLRenderer; bufferSize: Vec2i) =
     renderer.layer((bufferSize.x.GLsizei, bufferSize.y.GLsizei))
-
-#proc layerFramed*(renderer: GLRenderer; windowSize: Vec2i; letterbox: bool) =
-#    let windowSize = (windowSize.x.GLsizei, windowSize.y.GLsizei)
-#    glBindFramebuffer(GL_FRAMEBUFFER, renderer.frame.fbo)
-#    renderer.layer(renderer.frame.size)
-#    glBindFramebuffer(GL_FRAMEBUFFER, 0)
-#    glViewport(0, 0, windowSize[0], windowSize[1])
-#    glClearColor(0.0, 0.0, 0.0, 1.0)
-#    glClear(GL_COLOR_BUFFER_BIT)
-#    glDisable(GL_DEPTH_TEST)
-#   renderer.use(renderer.frame.shape)
-#   glBindTexture(GL_TEXTURE_2D, renderer.frame.texture)
-#    if letterbox:
-#        let
-#           xRatio = renderer.frame.size[0].GLfloat / windowSize[0].GLfloat
-#           yRatio = renderer.frame.size[1].GLfloat / windowSize[1].GLfloat
-#            higherRatio = max(xRatio, yRatio)
-#           scale = vec2f(xRatio, yRatio) / higherRatio
-#       renderer.setUniform("frameScale", scale)
-#    else:
-#        renderer.setUniform("frameScale", vec2f(1.0))
-#    renderer.applyUniforms()
-#    glDrawArrays(GL_TRIANGLES, 0, renderer.frame.shape.nVertices)
-#    renderer.usedProgram = nil
 
 proc layerFramed*(renderer: GLRenderer) =
     glBindFramebuffer(GL_FRAMEBUFFER, renderer.frame.fbo)

@@ -13,24 +13,36 @@ proc main() =
     const testBmp = staticRead("../textures/rat.bmp")
     var
         #testSheet = newSpriteSheet((16u, 16u), eg.renderer.program(0), testBmp)
-        testSheet = newSpriteSheet((0u, 0u), eg.renderer.program(0), testBmp)
-        testSprite = newSprite(testSheet, (0u, 0u))
+        testSheet = newSpriteSheet(vec2i(0, 0), eg.renderer.program(0), testBmp)
+        testSprite = newSprite(testSheet, vec2i(0, 0), vec2i(0, 0))
 
     const fontBmp = staticRead("../textures/font.bmp")
-    var fpsText = newMonoText((8u, 8u), eg.renderer.program(0), fontBmp)
+    var fpsText = newMonoText(vec2i(8, 8), eg.renderer.program(0), fontBmp)
     fpsText.setContent("0.0")
 
     const cursorBmp = staticRead("../textures/cursor.bmp")
     var
-        cursorSheet = newSpriteSheet((0u, 0u), eg.renderer.program(0), cursorBmp)
-        cursorSprite = newSprite(cursorSheet, (0u, 0u))
+        cursorSheet = newSpriteSheet(vec2i(0, 0), eg.renderer.program(0), cursorBmp)
+        cursorSprite = newSprite(cursorSheet, vec2i(0, 0), vec2i(-6, 5))
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
             fpsText.setContent($eg.frameCounter.getFps())
 
-        if eg.inpHeld(inMouseL):
+        if eg.inpHeld(inMouseM):
             camera.translate(vec3f(vec2f(eg.mouse.screenDelta), 0.0))
+        const speed = 120
+        let
+            mPos = eg.mouse.screenPos
+            move = speed * eg.delta
+        if mPos.x == 0:
+            camera.translate(vec3f(move, 0.0, 0.0))
+        elif mPos.x == eg.screenSize.x - 1:
+            camera.translate(vec3f(-move, 0.0, 0.0))
+        if mPos.y == 0:
+            camera.translate(vec3f(0.0, move, 0.0))
+        elif mPos.y == eg.screenSize.y - 1:
+            camera.translate(vec3f(0.0, -move, 0.0))
 
         if eg.inpPressed(inKeyM):
             eg.screenMode = case eg.screenMode
@@ -60,7 +72,7 @@ proc main() =
         eg.endCamera()
         cursorSprite.draw(
             eg,
-            pos = vec3f(eg.mouse.screenPos.x.float + 6.0, eg.mouse.screenPos.y.float - 5.0, 100.0),
+            pos = vec3f(vec2f(eg.mouse.screenPos), 100.0),
             tint = vec4f(0.8, 0.4, 0.2, 1.0)
         )
         fpsText.draw(eg)

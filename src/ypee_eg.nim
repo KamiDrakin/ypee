@@ -33,11 +33,12 @@ type
     SpriteSheet* = ref object
         shape*: GLShape
         image*: GLImage
-        size: (uint, uint)
-        width: uint
+        size: Vec2i
+        width: int32
     Sprite* = ref object
         sheet: SpriteSheet
-        offset*: (uint, uint)
+        offset*: Vec2i
+        center*: Vec2i
     MonoText* = ref object
         sheet: SpriteSheet
         instances: GLInstanceSeq
@@ -108,31 +109,32 @@ proc clearDeltas(mouse: var MouseState; eg: YpeeEg) =
     mouse.screenDelta = mouse.screenPos - mouse.prevScreenPos
     mouse.prevScreenPos = mouse.screenPos
 
-proc newSpriteSheet*(size: (uint, uint); program: GLProgram; bmpStr: string): SpriteSheet =
+proc newSpriteSheet*(size: Vec2i; program: GLProgram; bmpStr: string): SpriteSheet =
     result = new SpriteSheet
 
     result.shape = newShape(program, squareVertices)
     result.image = newImage(bmpStr)
     result.size =
-        if size[0] == 0 or size[1] == 0:
-            (result.image.size[0].uint, result.image.size[1].uint)
+        if size.x == 0 or size.y == 0:
+            vec2i(result.image.size[0], result.image.size[1])
         else:
             size
-    result.width = result.image.size[0].uint div result.size[0]
+    result.width = result.image.size[0] div result.size.x
 
-proc at*(sheet: SpriteSheet; x, y: uint): GLRect =
+proc at*(sheet: SpriteSheet; pos: Vec2i): GLRect =
     let
-        x = x.float
-        y = y.float
+        x = pos.x.float
+        y = pos.y.float
         w = sheet.size[0].float
         h = sheet.size[1].float
     rect(x * w, y * h, w, h)
 
-proc newSprite*(sheet: SpriteSheet; offset: (uint, uint)): Sprite =
+proc newSprite*(sheet: SpriteSheet; offset, center: Vec2i): Sprite =
     result = new Sprite
 
     result.sheet = sheet
     result.offset = offset
+    result.center = center
 
 proc draw*(
     sprite: Sprite;
@@ -143,11 +145,13 @@ proc draw*(
 ) =
     let inst =
         instance(tint) +
-        sprite.sheet.at(sprite.offset[0], sprite.offset[1]) +
-        mat4f().translate(pos).scale(sprite.sheet.size[0].float * scale.x, sprite.sheet.size[1].float * scale.y, 1.0)
+        sprite.sheet.at(sprite.offset) +
+        mat4f()
+            .translate(pos - vec3f(vec2f(sprite.center), 0.0))
+            .scale(sprite.sheet.size[0].float * scale.x, sprite.sheet.size[1].float * scale.y, 1.0)
     eg.renderer.draw(sprite.sheet.shape, sprite.sheet.image, inst)
 
-proc newMonoText*(size: (uint, uint); program: GLProgram; bmpStr: string): MonoText =
+proc newMonoText*(size: Vec2i; program: GLProgram; bmpStr: string): MonoText =
     result = new MonoText
 
     result.sheet = newSpriteSheet(size, program, bmpStr)
@@ -170,10 +174,10 @@ proc draw*(text: MonoText; eg: YpeeEg) =
         text.instances.clear()
         for i, c in text.str:
             let
-                asc = c.uint - 32
+                asc = c.int32 - 32
                 inst =
                     instance(vec4f(1.0, 1.0, 1.0, 1.0)) +
-                    text.sheet.at(asc mod text.sheet.width, asc div text.sheet.width) +
+                    text.sheet.at(vec2i(asc mod text.sheet.width, asc div text.sheet.width)) +
                     mat4f()
                         .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
                         .scale(text.sheet.size[0].float, text.sheet.size[1].float, 0.0)

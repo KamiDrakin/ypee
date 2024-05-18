@@ -47,8 +47,11 @@ type
         str: string
         width*: float
         changed: bool
-    Camera* = ref object
+    Camera2D* = ref object
+        baseMat: Mat4x4f
         viewMat: Mat4x4f
+        pos: Vec3f
+        pixelPos: Vec3f
     FrameCounter = ref object
         frameCap: int
         frameCount: int
@@ -116,7 +119,7 @@ proc updatePos(mouse: var MouseState; rawPos: Vec2i; eg: YpeeEg) =
             eg.window.warpMouseInWindow(rawPos.x.cint, (winSize.y - rawPos.y - 1).cint)
     mouse.screenPos = vec2i(mouse.screenPos.clamp(vec2i(0), eg.screenSize - 1))
 
-proc clearDeltas(mouse: var MouseState; eg: YpeeEg) =
+proc recalculateDeltas(mouse: var MouseState; eg: YpeeEg) =
     mouse.rawDelta = mouse.rawPos - mouse.rawPos
     mouse.prevPos = mouse.rawPos
     mouse.screenDelta = mouse.screenPos - mouse.prevScreenPos
@@ -198,13 +201,17 @@ proc draw*(text: MonoText; eg: YpeeEg) =
         text.changed = false
     eg.renderer.draw(text.sheet.shape, text.sheet.image, text.instances)
 
-proc newCamera*(viewMat: Mat4x4f): Camera =
-    result = new Camera
+proc newCamera2D*(viewMat: Mat4x4f): Camera2D =
+    result = new Camera2D
 
+    result.baseMat = viewMat
     result.viewMat = viewMat
+    result.pos = vec3f(0.0)
+    result.pixelPos = vec3f(0.0)
 
-proc translate*(cam: Camera; vec: Vec3f) =
-    cam.viewMat.translateInpl(vec)
+proc translate*(cam: Camera2D; vec: Vec3f) =
+    cam.pos += vec
+    cam.pixelPos = cam.pos.floor()
 
 proc newFrameCounter(): FrameCounter =
     result = new FrameCounter
@@ -371,8 +378,8 @@ proc nextFrame*(eg: YpeeEg): bool =
         of smFixed, smAdjustWidth, smStretch:
             eg.renderer.clearFrame()
     eg.prevInputs = eg.inputs
-    eg.mouse.clearDeltas(eg)
     eg.processEvents()
+    eg.mouse.recalculateDeltas(eg)
     return eg.running
 
 proc layer*(eg: YpeeEg) =
@@ -384,7 +391,8 @@ proc layer*(eg: YpeeEg) =
         of smStretch:
             eg.renderer.layerFramed()
 
-proc beginCamera*(eg: YpeeEg; cam: Camera) =
+proc beginCamera*(eg: YpeeEg; cam: Camera2D) =
+    cam.viewMat = cam.baseMat.translate(cam.pixelPos)
     eg.renderer.setUniform("viewMat", cam.viewMat)
 
 proc endCamera*(eg: YpeeEg) =

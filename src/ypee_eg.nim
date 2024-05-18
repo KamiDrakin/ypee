@@ -105,18 +105,18 @@ proc updatePos(mouse: var MouseState; rawPos: Vec2i; eg: YpeeEg) =
         let
             screenSize = vec2f(eg.screenSize)
             winSize = vec2f(eg.winSize)
-            screenPos = vec2f(mouse.screenPos)
+            screenPos = vec2f(vec2f(mouse.rawPos) * screenSize / winSize)
             ratio = screenSize / winSize
             higherRatio = max(ratio.x, ratio.y)
             scale = higherRatio / ratio 
             adjustedPos = screenPos * scale
             offset = screenSize * (scale - 1.0) / 2.0
-        mouse.screenPos = vec2i(adjustedPos) - vec2i(offset)
+        mouse.screenPos = vec2i(adjustedPos - offset)
         if not vec4i(0, 0, eg.screenSize - 1).contains(mouse.screenPos):
             let
-                rawOffset = (winSize - winSize / scale) / 2.0
-                rawPos = vec2f(mouse.rawPos).clamp(rawOffset, winSize - rawOffset)
-            eg.window.warpMouseInWindow(rawPos.x.cint, (winSize.y - rawPos.y - 1).cint)
+                rawOffset = vec2i(winSize - winSize / scale) / 2
+                rawPos = mouse.rawPos.clamp(rawOffset, vec2i(winSize) - rawOffset)
+            eg.window.warpMouseInWindow(rawPos.x, eg.winSize.y - rawPos.y - 1)
     mouse.screenPos = vec2i(mouse.screenPos.clamp(vec2i(0), eg.screenSize - 1))
 
 proc recalculateDeltas(mouse: var MouseState; eg: YpeeEg) =

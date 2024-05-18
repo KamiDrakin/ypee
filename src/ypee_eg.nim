@@ -145,12 +145,15 @@ proc at*(sheet: SpriteSheet; pos: Vec2i): GLRect =
         h = sheet.size[1].float
     rect(x * w, y * h, w, h)
 
-proc newSprite*(sheet: SpriteSheet; offset, center: Vec2i): Sprite =
+proc newSprite*(sheet: SpriteSheet; offset: Vec2i = vec2i(0); center: Vec2i = vec2i(0)): Sprite =
     result = new Sprite
 
     result.sheet = sheet
     result.offset = offset
-    result.center = center
+    if center == vec2i(0):
+        result.center = -sheet.size / 2
+    else:
+        result.center = center
 
 proc draw*(
     sprite: Sprite;
@@ -212,6 +215,9 @@ proc newCamera2D*(viewMat: Mat4x4f): Camera2D =
 proc translate*(cam: Camera2D; vec: Vec3f) =
     cam.pos += vec
     cam.pixelPos = cam.pos.floor()
+
+proc relative*(cam: Camera2D; vec: Vec3f): Vec3f =
+    vec - cam.pos
 
 proc newFrameCounter(): FrameCounter =
     result = new FrameCounter
@@ -295,12 +301,15 @@ proc newYpeeEg*(
         (screenSize.x * defaultScale).cint, (screenSize.y * defaultScale).cint,
         SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE
     )
-    #var context = eg.window.glCreateContext()
     discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3)
     discard glSetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3)
     discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE)
     discard glCreateContext(result.window)
-    discard glSetSwapInterval(if fpsCap == -1: 1 else: 0)
+
+    var fpsCap = fpsCap
+    if fpsCap == -1:
+        if glSetSwapInterval(1) == -1:
+            fpsCap = 60
 
     result.renderer = newRenderer()
     const
@@ -324,6 +333,7 @@ proc newYpeeEg*(
     let winSize = result.window.getSize()
     result.refreshProjection(cast[Vec2i](winSize))
 
+    result.mouse.screenPos = screenSize / 2
     showCursor(false)
     discard setRelativeMouseMode(true.Bool32)
 

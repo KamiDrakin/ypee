@@ -3,4 +3,5 @@ nimblecache/
 htmldocs/
 *.dll
 *.exe
+*.zip
 .vscode/

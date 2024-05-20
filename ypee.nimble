@@ -11,7 +11,7 @@ bin           = @["ypee"]
 # Dependencies
 
 requires "nim >= 2.0.4"
-requires "sdl2"
-requires "opengl"
-requires "glm"
-requires "nimbmp"
+requires "sdl2 >= 2.0.5"
+requires "opengl >= 1.2.9"
+requires "glm >= 1.1.1"
+requires "nimbmp >= 0.1.8"

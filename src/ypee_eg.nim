@@ -174,8 +174,8 @@ proc draw*(sprite: Sprite; eg: YpeeEg) =
 proc `tint=`*(inst: SpriteInst; v: Vec4f) =
     inst.sprite.instances[inst.tint] = v
 
-proc `sheetRect=`*(inst: SpriteInst; v: GLRect) =
-    inst.sprite.instances[inst.sheetRect] = v
+proc `offset=`*(inst: SpriteInst; v: Vec2i) =
+    inst.sprite.instances[inst.sheetRect] = inst.sprite.sheet.at(v)
 
 proc `pos=`*(inst: SpriteInst; v: Vec3f) =
     inst.sprite.instances[inst.modelMat] =

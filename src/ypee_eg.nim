@@ -38,11 +38,17 @@ type
         width: int32
     Sprite* = ref object
         sheet: SpriteSheet
+        instances: GLInstances
         offset*: Vec2i
         center*: Vec2i
+    SpriteInst* = object
+        sprite: Sprite
+        tint: int
+        sheetRect: int
+        modelMat: int
     MonoText* = ref object
         sheet: SpriteSheet
-        instances: GLInstanceSeq
+        instances: GLInstances
         pos: Vec3f
         str: string
         width*: float
@@ -141,40 +147,47 @@ proc at*(sheet: SpriteSheet; pos: Vec2i): GLRect =
     let
         x = pos.x.float
         y = pos.y.float
-        w = sheet.size[0].float
-        h = sheet.size[1].float
+        w = sheet.size.x.float
+        h = sheet.size.y.float
     rect(x * w, y * h, w, h)
 
 proc newSprite*(sheet: SpriteSheet; offset: Vec2i = vec2i(0); center: Vec2i = vec2i(0)): Sprite =
     result = new Sprite
 
     result.sheet = sheet
+    result.instances = newInstances(sheet.shape.program, 4)
     result.offset = offset
     if center == vec2i(0):
         result.center = -sheet.size / 2
     else:
         result.center = center
 
-proc draw*(
-    sprite: Sprite;
-    eg: YpeeEg;
-    pos: Vec3f;
-    tint: Vec4f = vec4f(1.0);
-    scale: Vec2f = vec2f(1.0);
-) =
-    let inst =
-        instance(tint) +
-        sprite.sheet.at(sprite.offset) +
+proc addInstance*(sprite: Sprite): SpriteInst =
+    result.sprite = sprite
+    result.tint = sprite.instances.add(vec4f(1.0))
+    result.sheetRect = sprite.instances.add(sprite.sheet.at(vec2i(0)))
+    result.modelMat = sprite.instances.add(mat4f())
+
+proc draw*(sprite: Sprite; eg: YpeeEg) =
+    eg.renderer.draw(sprite.sheet.shape, sprite.sheet.image, sprite.instances)
+
+proc `tint=`*(inst: SpriteInst; v: Vec4f) =
+    inst.sprite.instances[inst.tint] = v
+
+proc `sheetRect=`*(inst: SpriteInst; v: GLRect) =
+    inst.sprite.instances[inst.sheetRect] = v
+
+proc `pos=`*(inst: SpriteInst; v: Vec3f) =
+    inst.sprite.instances[inst.modelMat] =
         mat4f()
-            .translate(pos - vec3f(vec2f(sprite.center), 0.0))
-            .scale(sprite.sheet.size[0].float * scale.x, sprite.sheet.size[1].float * scale.y, 1.0)
-    eg.renderer.draw(sprite.sheet.shape, sprite.sheet.image, inst)
+            .translate(v - vec3f(vec2f(inst.sprite.center), 0.0))
+            .scale(inst.sprite.sheet.size.x.float, inst.sprite.sheet.size.y.float, 1.0)
 
 proc newMonoText*(size: Vec2i; program: GLProgram; bmpStr: string): MonoText =
     result = new MonoText
 
     result.sheet = newSpriteSheet(size, program, bmpStr)
-    result.instances = newInstanceSeq(program, 4)
+    result.instances = newInstances(program, 4)
     result.width = 0.0
 
 proc setContent*(text: var MonoText; str: string) =
@@ -186,19 +199,18 @@ proc setContent*(text: var MonoText; str: string) =
 proc draw*(
     text: MonoText;
     eg: YpeeEg;
-) =
+) = # update this
     if text.changed:
         text.instances.clear()
         for i, c in text.str:
-            let
-                asc = c.int32 - 32
-                inst =
-                    instance(vec4f(1.0, 1.0, 1.0, 1.0)) +
-                    text.sheet.at(vec2i(asc mod text.sheet.width, asc div text.sheet.width)) +
-                    mat4f()
-                        .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
-                        .scale(text.sheet.size[0].float, text.sheet.size[1].float, 0.0)
-            text.instances.add(inst)
+            let asc = c.int32 - 32
+            discard text.instances.add(vec4f(1.0, 1.0, 1.0, 1.0))
+            discard text.instances.add(text.sheet.at(vec2i(asc mod text.sheet.width, asc div text.sheet.width)))
+            discard text.instances.add(
+                mat4f()
+                    .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
+                    .scale(text.sheet.size[0].float, text.sheet.size[1].float, 0.0)
+            )
         text.changed = false
     eg.renderer.draw(text.sheet.shape, text.sheet.image, text.instances)
 

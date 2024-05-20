@@ -20,9 +20,8 @@ type
         uniforms: Table[string, (GLint, GLsizei)]
     GLRect* = object
         x, y, w, h: GLfloat
-    GLInstance = seq[GLfloat]
-    GLInstanceSeq* = ref object
-        instances: seq[GLfloat]
+    GLInstances* = ref object
+        data: seq[GLfloat]
         instSize: GLsizei
         buffer: GLuint
         maxLen: int
@@ -32,11 +31,11 @@ type
     GLShape* = ref object
         nVertices: GLsizei
         vao: GLuint
-        program: GLProgram
+        program*: GLProgram
     GLDrawItem = object
         shape: GLShape
         image: GLImage
-        instances: GLInstanceSeq
+        instances: GLInstances
     GLFrame = ref object
         shape: GLShape
         fbo: GLuint
@@ -92,7 +91,7 @@ proc newProgram*(vShaderSrc, fShaderSrc: string): GLProgram =
 
 proc setAttributes*(program: GLProgram; vertAttribs, instAttribs: seq[(string, int)]) =
     for (aName, aSize) in vertAttribs:
-        let 
+        let
             aSize = aSize.GLsizei
             aLoc = glGetAttribLocation(program.id, aName.cstring)
         assert aLoc >= 0
@@ -100,7 +99,7 @@ proc setAttributes*(program: GLProgram; vertAttribs, instAttribs: seq[(string, i
 
     program.instSize = 0
     for (aName, aSize) in instAttribs:
-        let 
+        let
             aSize = aSize.GLsizei
             aLoc = glGetAttribLocation(program.id, aName.cstring)
         assert aLoc >= 0
@@ -136,54 +135,53 @@ proc enableAttributes(program: GLProgram; divisor: GLuint) =
 proc rect*(x, y, w, h: GLfloat): GLRect =
     GLRect(x: x, y: y, w: w, h: h)
 
-proc instance*[T](data: T): GLInstance =
-    result.add(cast[array[sizeof(T) div sizeof(GLfloat), GLfloat]](data))
-    
-proc `+`*(inst1, inst2: GLInstance): GLInstance =
-    result = inst1
-    result.add(inst2)
+proc newInstances*(program: GLProgram; initLen: int): GLInstances =
+    result = new GLInstances
 
-proc `+`*[T](inst: GLInstance; data: T): GLInstance =
-    result = inst + instance(data)
-
-proc newInstanceSeq*(program: GLProgram; initLen: int): GLInstanceSeq =
-    result = new GLInstanceSeq
-
+    result.data = newSeqOfCap[GLfloat](initLen)
     result.instSize = program.instSize
     result.maxLen = initLen
 
     glGenBuffers(1, result.buffer.addr)
 
     glBindBuffer(GL_ARRAY_BUFFER, result.buffer)
-    glBufferData(GL_ARRAY_BUFFER, (result.instances.len() * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
-
+    glBufferData(GL_ARRAY_BUFFER, (result.maxLen * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
     program.enableAttributes(1)
+    glBindBuffer(GL_ARRAY_BUFFER, 0)
 
-proc len(instSeq: GLInstanceSeq): int =
-    instSeq.instances.len() div instSeq.instSize
+proc len(insts: GLInstances): int =
+    insts.data.len() div insts.instSize
 
-proc add*(instSeq: GLInstanceSeq; inst: GLInstance) =
-    instSeq.instances.add(inst)
+proc add*[T](insts: GLInstances; data: T): int =
+    let
+        data = cast[array[sizeof(T) div sizeof(GLfloat), GLfloat]](data)
+        start = insts.data.len()
+    insts.data.add(data)
+    start
 
-proc add*(instSeq1: GLInstanceSeq; instSeq2: GLInstanceSeq) =
-    instSeq1.instances.add(instSeq2.instances)
+proc `[]=`*[T](insts: GLInstances; i: int; v: T) =
+    cast[ptr T](insts.data[i].addr)[] = v
 
-proc clear*(instSeq: GLInstanceSeq) =
-    instSeq.instances.setLen(0)
+proc add(insts1: GLInstances; insts2: GLInstances) =
+    insts1.data.add(insts2.data)
 
-proc resize(instSeq: GLInstanceSeq) =
-    while instSeq.instances.len() > instSeq.maxLen:
-        instSeq.maxLen *= 2
-    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
+proc clear*(insts: GLInstances) =
+    insts.data.setLen(0)
 
-proc bufferData(instSeq: GLInstanceSeq) =
-    glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
-    if instSeq.instances.len() > instSeq.maxLen:
-        instSeq.resize()
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (instSeq.instances.len() * sizeof(GLfloat)).GLsizeiptr, instSeq.instances[0].addr)
+proc resize(insts: GLInstances) =
+    while insts.data.len() > insts.maxLen:
+        insts.maxLen *= 2
+    glBufferData(GL_ARRAY_BUFFER, (insts.maxLen * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
 
-proc destroy*(instSeq: GLInstanceSeq) =
-    try: glDeleteBuffers(1, instSeq.buffer.addr)
+proc bufferData(insts: GLInstances) =
+    glBindBuffer(GL_ARRAY_BUFFER, insts.buffer)
+    if insts.data.len() > insts.maxLen:
+        insts.resize()
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (insts.data.len() * sizeof(GLfloat)).GLsizeiptr, insts.data[0].addr)
+    glBindBuffer(GL_ARRAY_BUFFER, 0)
+
+proc destroy*(insts: GLInstances) =
+    try: glDeleteBuffers(1, insts.buffer.addr)
     except: echo "Failed to delete buffer."
 
 proc newImage*(bmpStr: string): GLImage =
@@ -338,31 +336,18 @@ proc applyUniforms(renderer: GLRenderer) =
             of 16: glUniformMatrix4fv(uLoc, 1.GLsizei, false, val)
             else: discard
 
-proc draw*(renderer: GLRenderer; shape: GLShape; image: GLImage; instance: GLInstance) =
+proc draw*(renderer: GLRenderer; shape: GLShape; image: GLImage; insts: GLInstances) =
     var item: GLDrawItem
     item.shape = shape
     item.image = image
     let searchPos = renderer.toDraw.binarySearch(item, drawItemCmp)
     if searchPos == -1:
         renderer.use(shape)
-        item.instances = newInstanceSeq(renderer.usedProgram, 4)
-        item.instances.add(instance)
+        item.instances = new GLInstances
+        item.instances[] = insts[]
         renderer.toDraw.add(item)
     else:
-        renderer.toDraw[searchPos].instances.add(instance)
-
-proc draw*(renderer: GLRenderer; shape: GLShape; image: GLImage; instances: GLInstanceSeq) =
-    var item: GLDrawItem
-    item.shape = shape
-    item.image = image
-    let searchPos = renderer.toDraw.binarySearch(item, drawItemCmp)
-    if searchPos == -1:
-        renderer.use(shape)
-        item.instances = new GLInstanceSeq
-        item.instances[] = instances[]
-        renderer.toDraw.add(item)
-    else:
-        renderer.toDraw[searchPos].instances.add(instances)
+        renderer.toDraw[searchPos].instances.add(insts)
 
 proc layer(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
     glViewport(0, 0, bufferSize[0], bufferSize[1])
@@ -372,7 +357,7 @@ proc layer(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
     var
         lastShape: GLShape
         lastImage: GLImage
-    for item in renderer.toDraw:
+    for item in renderer.toDraw.mitems:
         if item.instances.len() == 0: continue
         if item.shape != lastShape:
             renderer.use(item.shape)
@@ -381,10 +366,9 @@ proc layer(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
             renderer.use(item.image)
             lastImage = item.image
         renderer.applyUniforms()
-        let itemPtr = item.addr
-        itemPtr[].instances.bufferData()
+        item.instances.bufferData()
         glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape.nVertices, item.instances.len().GLsizei)
-        itemPtr[].instances.clear()
+        item.instances.clear()
 
 proc layer*(renderer: GLRenderer; bufferSize: Vec2i) =
     renderer.layer((bufferSize.x.GLsizei, bufferSize.y.GLsizei))

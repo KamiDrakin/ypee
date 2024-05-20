@@ -31,6 +31,15 @@ proc main() =
         tileSheet = newSpriteSheet(vec2i(0, 0), eg.renderer.program(0), tileBmp)
         tileSprite = newSprite(tileSheet)
 
+    let cursorInst = cursorSprite.addInstance()
+    cursorInst.tint = vec4f(0.8, 0.4, 0.2, 1.0)
+
+    for y in countup(1, 100):
+        for x in countup(1, 100):
+            let inst = tileSprite.addInstance()
+            inst.tint = vec4f(0.01 * x.float, 0.01 * y.float, 0.33, 1.0)
+            inst.pos = vec3f(x.float * 8.0, y.float * 8.0, (x + y).float)
+
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
             fpsText.setContent($eg.frameCounter.getFps())
@@ -65,19 +74,17 @@ proc main() =
 
         if eg.inpPressed(inKeyEsc):
             eg.running = false
+
+        cursorInst.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
             
         eg.beginCamera(game.cam)
-        tileSprite.draw(eg, pos = vec3f(50.0, 50.0, 0.0))
+        tileSprite.draw(eg)
         eg.layer()
         eg.endCamera()
-        cursorSprite.draw(
-            eg,
-            pos = vec3f(vec2f(eg.mouse.screenPos), 100.0),
-            tint = vec4f(0.8, 0.4, 0.2, 1.0)
-        )
+        cursorSprite.draw(eg)
         fpsText.draw(eg, vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
         eg.layer()
-    
+
     eg.destroy()
 
 when isMainModule:

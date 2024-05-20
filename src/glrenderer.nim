@@ -174,14 +174,13 @@ proc clear*(instSeq: GLInstanceSeq) =
 proc resize(instSeq: GLInstanceSeq) =
     while instSeq.instances.len() > instSeq.maxLen:
         instSeq.maxLen *= 2
-    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLfloat)).GLsizeiptr, instSeq.instances[0].addr, GL_DYNAMIC_DRAW)
+    glBufferData(GL_ARRAY_BUFFER, (instSeq.maxLen * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
 
 proc bufferData(instSeq: GLInstanceSeq) =
     glBindBuffer(GL_ARRAY_BUFFER, instSeq.buffer)
     if instSeq.instances.len() > instSeq.maxLen:
         instSeq.resize()
-    else:
-        glBufferSubData(GL_ARRAY_BUFFER, 0, (instSeq.instances.len() * sizeof(GLfloat)).GLsizeiptr, instSeq.instances[0].addr)
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (instSeq.instances.len() * sizeof(GLfloat)).GLsizeiptr, instSeq.instances[0].addr)
 
 proc destroy*(instSeq: GLInstanceSeq) =
     try: glDeleteBuffers(1, instSeq.buffer.addr)
@@ -269,8 +268,8 @@ proc newFrame*(size: Vec2i): GLFrame =
     result = new GLFrame
 
     const
-        vShaderSrc = staticRead("shaders/frame.vs")
-        fShaderSrc = staticRead("shaders/frame.fs")
+        vShaderSrc = staticRead("shaders/ypee/frame.vs")
+        fShaderSrc = staticRead("shaders/ypee/frame.fs")
     var program: GLProgram
     program = newProgram(vShaderSrc, fShaderSrc)
     program.setAttributes(@[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)], @[])

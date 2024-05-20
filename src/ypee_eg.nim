@@ -183,12 +183,10 @@ proc setContent*(text: var MonoText; str: string) =
         text.width = text.sheet.size[0].float * (str.len() - 1).float
         text.changed = true
 
-proc setPos*(text: MonoText; pos: Vec3f) =
-    if pos != text.pos:
-        text.pos = pos
-        text.changed = true
-
-proc draw*(text: MonoText; eg: YpeeEg) =
+proc draw*(
+    text: MonoText;
+    eg: YpeeEg;
+) =
     if text.changed:
         text.instances.clear()
         for i, c in text.str:
@@ -203,6 +201,16 @@ proc draw*(text: MonoText; eg: YpeeEg) =
             text.instances.add(inst)
         text.changed = false
     eg.renderer.draw(text.sheet.shape, text.sheet.image, text.instances)
+
+proc draw*(
+    text: MonoText;
+    eg: YpeeEg;
+    pos: Vec3f;
+) =
+    if pos != text.pos:
+        text.pos = pos
+        text.changed = true
+    text.draw(eg)
 
 proc newCamera2D*(viewMat: Mat4x4f): Camera2D =
     result = new Camera2D
@@ -313,8 +321,8 @@ proc newYpeeEg*(
 
     result.renderer = newRenderer()
     const
-        vShaderSrc = staticRead("shaders/ypee.vs")
-        fShaderSrc = staticRead("shaders/ypee.fs")
+        vShaderSrc = staticRead("shaders/ypee/ypee.vs")
+        fShaderSrc = staticRead("shaders/ypee/ypee.fs")
     var progBase = newProgram(vShaderSrc, fShaderSrc)
     progBase.setAttributes(
         @[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)],

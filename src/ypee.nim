@@ -11,9 +11,9 @@ type
 
 proc main() =
     const
-        cursorBmp = staticRead("../textures/cursor.bmp")
-        fontBmp = staticRead("../textures/font.bmp")
-        tileBmp = staticRead("../textures/hexa.bmp")
+        cursorBmp = staticRead("textures/cursor.bmp")
+        fontBmp = staticRead("textures/font.bmp")
+        tileBmp = staticRead("textures/hexa.bmp")
     var
         game = new Game
         eg = newYpeeEg(vec2i(320, 200), smFixed, -1)
@@ -66,18 +66,8 @@ proc main() =
         if eg.inpPressed(inKeyEsc):
             eg.running = false
             
-        fpsText.setPos(vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
-            
         eg.beginCamera(game.cam)
-        for y in countup(0, 9):
-            for x in countup(0, 9):
-                let
-                    y = y.float * 12.0 + (if x mod 2 == 1: 6.0 else: 0.0)
-                    x = x.float * 15.0
-                tileSprite.draw(
-                    eg,
-                    pos = vec3f(x, y, 0.0)
-                )
+        tileSprite.draw(eg, pos = vec3f(50.0, 50.0, 0.0))
         eg.layer()
         eg.endCamera()
         cursorSprite.draw(
@@ -85,7 +75,7 @@ proc main() =
             pos = vec3f(vec2f(eg.mouse.screenPos), 100.0),
             tint = vec4f(0.8, 0.4, 0.2, 1.0)
         )
-        fpsText.draw(eg)
+        fpsText.draw(eg, vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
         eg.layer()
     
     eg.destroy()

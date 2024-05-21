@@ -39,13 +39,13 @@ type
     Sprite* = ref object
         sheet: SpriteSheet
         instances: GLInstances
-        offset*: Vec2i
         center*: Vec2i
-    SpriteInst* = object
+    SpriteInst* = ref object
         sprite: Sprite
-        tint: int
-        sheetRect: int
-        modelMat: int
+        tint: ref int
+        sheetRect: ref int
+        modelMat: ref int
+        pos: Vec3f
     MonoText* = ref object
         sheet: SpriteSheet
         instances: GLInstances
@@ -156,31 +156,38 @@ proc newSprite*(sheet: SpriteSheet; offset: Vec2i = vec2i(0); center: Vec2i = ve
 
     result.sheet = sheet
     result.instances = newInstances(sheet.shape.program, 4)
-    result.offset = offset
     if center == vec2i(0):
         result.center = -sheet.size / 2
     else:
         result.center = center
 
 proc addInstance*(sprite: Sprite): SpriteInst =
+    result = new SpriteInst
+
     result.sprite = sprite
     result.tint = sprite.instances.add(vec4f(1.0))
     result.sheetRect = sprite.instances.add(sprite.sheet.at(vec2i(0)))
     result.modelMat = sprite.instances.add(mat4f())
 
+proc removeInstance*(sprite: Sprite; inst: SpriteInst) =
+    sprite.instances.delete(inst.tint, 3)
+
 proc draw*(sprite: Sprite; eg: YpeeEg) =
     eg.renderer.draw(sprite.sheet.shape, sprite.sheet.image, sprite.instances)
 
 proc `tint=`*(inst: SpriteInst; v: Vec4f) =
-    inst.sprite.instances[inst.tint] = v
+    inst.sprite.instances[inst.tint[]] = v
 
 proc `offset=`*(inst: SpriteInst; v: Vec2i) =
-    inst.sprite.instances[inst.sheetRect] = inst.sprite.sheet.at(v)
+    inst.sprite.instances[inst.sheetRect[]] = inst.sprite.sheet.at(v)
 
-proc `pos=`*(inst: SpriteInst; v: Vec3f) =
-    inst.sprite.instances[inst.modelMat] =
+proc pos*(inst: SpriteInst): Vec3f = inst.pos
+
+proc `pos=`*(inst: var SpriteInst; pos: Vec3f) =
+    inst.pos = pos
+    inst.sprite.instances[inst.modelMat[]] =
         mat4f()
-            .translate(v - vec3f(vec2f(inst.sprite.center), 0.0))
+            .translate(inst.pos - vec3f(vec2f(inst.sprite.center), 0.0))
             .scale(inst.sprite.sheet.size.x.float, inst.sprite.sheet.size.y.float, 1.0)
 
 proc newMonoText*(size: Vec2i; program: GLProgram; bmpStr: string): MonoText =

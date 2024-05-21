@@ -1,4 +1,5 @@
 import std/tables
+import std/sets
 import std/algorithm
 
 import glm
@@ -22,6 +23,7 @@ type
         x, y, w, h: GLfloat
     GLInstances* = ref object
         data: seq[GLfloat]
+        offsets: AdditiveInts
         instSize: GLsizei
         buffer: GLuint
         maxLen: int
@@ -152,12 +154,17 @@ proc newInstances*(program: GLProgram; initLen: int): GLInstances =
 proc len(insts: GLInstances): int =
     insts.data.len() div insts.instSize
 
-proc add*[T](insts: GLInstances; data: T): int =
-    let
-        data = cast[array[sizeof(T) div sizeof(GLfloat), GLfloat]](data)
-        start = insts.data.len()
+proc add*[T](insts: GLInstances; data: T): ref int =
+    const size = sizeof(T) div sizeof(GLfloat)
+    let data = cast[array[size, GLfloat]](data)
+    result = insts.offsets.add(size)
     insts.data.add(data)
-    start
+
+proc delete*(insts: GLInstances; first: ref int; nOffsets: int) =
+    let i = insts.offsets.find(first)
+    for _ in countup(0, nOffsets - 1):
+        insts.offsets.delete(i)
+    insts.data[first[]..first[] + insts.instSize - 1] = @[]
 
 proc `[]=`*[T](insts: GLInstances; i: int; v: T) =
     cast[ptr T](insts.data[i].addr)[] = v

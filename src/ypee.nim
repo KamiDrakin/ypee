@@ -1,8 +1,10 @@
+import glm
+
 import ypee_eg
 
 # temporary
-import glm
 import glrenderer
+import random
 
 type
     Game = ref object
@@ -10,6 +12,8 @@ type
         cam: Camera2D
 
 proc main() =
+    randomize()
+
     const
         cursorBmp = staticRead("textures/cursor.bmp")
         fontBmp = staticRead("textures/font.bmp")
@@ -31,14 +35,16 @@ proc main() =
         tileSheet = newSpriteSheet(vec2i(0, 0), eg.renderer.program(0), tileBmp)
         tileSprite = newSprite(tileSheet)
 
-    let cursorInst = cursorSprite.addInstance()
+    var cursorInst = cursorSprite.addInstance()
     cursorInst.tint = vec4f(0.8, 0.4, 0.2, 1.0)
 
+    var tiles: seq[SpriteInst]
     for y in countup(1, 100):
         for x in countup(1, 100):
-            let inst = tileSprite.addInstance()
+            var inst = tileSprite.addInstance()
             inst.tint = vec4f(0.01 * x.float, 0.01 * y.float, 0.33, 1.0)
             inst.pos = vec3f(x.float * 8.0, y.float * 8.0, (x + y).float)
+            tiles.add(inst)
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
@@ -47,7 +53,7 @@ proc main() =
         if eg.inpHeld(inMouseM):
             game.cam.translate(vec3f(vec2f(eg.mouse.screenDelta), 0.0))
         else:
-            const speed = 120
+            const speed = 160
             let
                 mPos = eg.mouse.screenPos
                 move = speed * eg.delta
@@ -76,6 +82,9 @@ proc main() =
             eg.running = false
 
         cursorInst.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
+
+        var randomTile = tiles[rand(9999)]
+        randomTile.pos = randomTile.pos + vec3f(0.0, 1.0, 0.0)
             
         eg.beginCamera(game.cam)
         tileSprite.draw(eg)

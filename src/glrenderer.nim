@@ -23,7 +23,7 @@ type
         x, y, w, h: GLfloat
     GLInstances* = ref object
         data: seq[GLfloat]
-        offsets: AdditiveInts
+        offsets: Strider
         instSize: GLsizei
         buffer: GLuint
         maxLen: int
@@ -160,11 +160,15 @@ proc add*[T](insts: GLInstances; data: T): ref int =
     result = insts.offsets.add(size)
     insts.data.add(data)
 
-proc delete*(insts: GLInstances; first: ref int; nOffsets: int) =
-    let i = insts.offsets.find(first)
-    for _ in countup(0, nOffsets - 1):
-        insts.offsets.delete(i)
-    insts.data[first[]..first[] + insts.instSize - 1] = @[]
+proc del*(insts: GLInstances; offset: ref int) =
+    let i = insts.offsets.find(offset)
+    if i == insts.offsets.len() - 1:
+        for i in countdown(insts.data.len() - 1, offset[]):
+            insts.data.del(i)
+    else:
+        for i in countdown(insts.offsets[i + 1][] - 1, offset[]):
+            insts.data.del(i)
+    insts.offsets.del(i)
 
 proc `[]=`*[T](insts: GLInstances; i: int; v: T) =
     cast[ptr T](insts.data[i].addr)[] = v

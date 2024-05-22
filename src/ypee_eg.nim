@@ -151,15 +151,15 @@ proc at*(sheet: SpriteSheet; pos: Vec2i): GLRect =
         h = sheet.size.y.float
     rect(x * w, y * h, w, h)
 
-proc newSprite*(sheet: SpriteSheet; offset: Vec2i = vec2i(0); center: Vec2i = vec2i(0)): Sprite =
+proc newSprite*(sheet: SpriteSheet; center: Vec2i): Sprite =
     result = new Sprite
 
     result.sheet = sheet
     result.instances = newInstances(sheet.shape.program, 4)
-    if center == vec2i(0):
-        result.center = -sheet.size / 2
-    else:
-        result.center = center
+    result.center = center
+
+proc newSprite*(sheet: SpriteSheet): Sprite =
+    result = newSprite(sheet, -sheet.size / 2)
 
 proc addInstance*(sprite: Sprite): SpriteInst =
     result = new SpriteInst
@@ -169,8 +169,10 @@ proc addInstance*(sprite: Sprite): SpriteInst =
     result.sheetRect = sprite.instances.add(sprite.sheet.at(vec2i(0)))
     result.modelMat = sprite.instances.add(mat4f())
 
-proc removeInstance*(sprite: Sprite; inst: SpriteInst) =
-    sprite.instances.delete(inst.tint, 3)
+proc remove*(inst: SpriteInst) =
+    inst.sprite.instances.del(inst.modelMat)
+    inst.sprite.instances.del(inst.sheetRect)
+    inst.sprite.instances.del(inst.tint)
 
 proc draw*(sprite: Sprite; eg: YpeeEg) =
     eg.renderer.draw(sprite.sheet.shape, sprite.sheet.image, sprite.instances)
@@ -187,7 +189,7 @@ proc `pos=`*(inst: var SpriteInst; pos: Vec3f) =
     inst.pos = pos
     inst.sprite.instances[inst.modelMat[]] =
         mat4f()
-            .translate(inst.pos - vec3f(vec2f(inst.sprite.center), 0.0))
+            .translate(floor(inst.pos) - vec3f(vec2f(inst.sprite.center), 0.0))
             .scale(inst.sprite.sheet.size.x.float, inst.sprite.sheet.size.y.float, 1.0)
 
 proc newMonoText*(size: Vec2i; program: GLProgram; bmpStr: string): MonoText =
@@ -245,6 +247,9 @@ proc translate*(cam: Camera2D; vec: Vec3f) =
 
 proc relative*(cam: Camera2D; vec: Vec3f): Vec3f =
     vec - cam.pos
+
+proc unrelative*(cam: Camera2D; vec: Vec3f): Vec3f =
+    vec + cam.pos
 
 proc newFrameCounter(): FrameCounter =
     result = new FrameCounter

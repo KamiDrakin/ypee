@@ -26,24 +26,26 @@ proc main() =
 
     var
         cursorSheet = newSpriteSheet(vec2i(0, 0), eg.renderer.program(0), cursorBmp)
-        cursorSprite = newSprite(cursorSheet, center = vec2i(-6, 5))
+        cursorSprite = newSprite(cursorSheet, vec2i(-6, 5))
 
     var fpsText = newMonoText(vec2i(8, 8), eg.renderer.program(0), fontBmp)
     fpsText.setContent("0.0")
 
     var
         tileSheet = newSpriteSheet(vec2i(0, 0), eg.renderer.program(0), tileBmp)
-        tileSprite = newSprite(tileSheet)
+        tileSprite = newSprite(tileSheet, vec2i(0, 0))
 
-    var cursorInst = cursorSprite.addInstance()
-    cursorInst.tint = vec4f(0.8, 0.4, 0.2, 1.0)
+    var tileCountText = newMonoText(vec2i(8, 8), eg.renderer.program(0), fontBmp)
+
+    var cursor = cursorSprite.addInstance()
+    cursor.tint = vec4f(0.8, 0.4, 0.2, 1.0)
 
     var tiles: seq[SpriteInst]
     for y in countup(1, 100):
         for x in countup(1, 100):
             var inst = tileSprite.addInstance()
             inst.tint = vec4f(0.01 * x.float, 0.01 * y.float, 0.33, 1.0)
-            inst.pos = vec3f(x.float * 8.0, y.float * 8.0, (x + y).float)
+            inst.pos = vec3f(x.float * 8.0, y.float * 8.0, -(x + y).float)
             tiles.add(inst)
 
     while eg.nextFrame():
@@ -81,10 +83,24 @@ proc main() =
         if eg.inpPressed(inKeyEsc):
             eg.running = false
 
-        cursorInst.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
+        if eg.inpHeld(inMouseL):
+            for _ in countup(0, 1):
+                var inst = tileSprite.addInstance()
+                inst.tint = vec4f(sin(eg.time), cos(eg.time), 0.33, 1.0)
+                inst.pos = game.cam.relative(vec3f(vec2f(eg.mouse.screenPos), eg.time))
+                tiles.add(inst)
 
-        var randomTile = tiles[rand(9999)]
-        randomTile.pos = randomTile.pos + vec3f(0.0, 1.0, 0.0)
+        cursor.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
+
+        if tiles.len() > 0:
+            for _ in countup(0, 16):
+                var randomTile = tiles[rand(tiles.len() - 1)]
+                randomTile.pos = randomTile.pos + vec3f((-1 + rand(2)).float, (-1 + rand(2)).float, 0.0)
+            let randPos = rand(tiles.len() - 1)
+            var randomTile = tiles[randPos]
+            tiles.delete(randPos)
+            randomTile.remove()
+        tileCountText.setContent($tiles.len())
             
         eg.beginCamera(game.cam)
         tileSprite.draw(eg)
@@ -92,6 +108,7 @@ proc main() =
         eg.endCamera()
         cursorSprite.draw(eg)
         fpsText.draw(eg, vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
+        tileCountText.draw(eg, vec3f(4.0, eg.screenSize[1].float - 14.0, 10.0))
         eg.layer()
 
     eg.destroy()

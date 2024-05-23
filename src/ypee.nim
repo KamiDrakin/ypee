@@ -28,7 +28,7 @@ proc main() =
         cursorSprite = newSprite(cursorSheet, vec2i(-6, 5))
 
     var fpsText = newMonoText(vec2i(8, 8), eg.defaultProgram, fontBmp)
-    fpsText.setContent("0.0")
+    fpsText.content ="0.0"
 
     var
         tileSheet = newSpriteSheet(vec2i(0, 0), eg.defaultProgram, tileBmp)
@@ -49,7 +49,7 @@ proc main() =
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
-            fpsText.setContent($eg.frameCounter.getFps())
+            fpsText.content = $eg.frameCounter.getFps()
 
         if eg.inpHeld(inMouseM):
             game.cam.translate(vec3f(vec2f(eg.mouse.screenDelta), 0.0))
@@ -84,8 +84,8 @@ proc main() =
 
         cursor.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 
-        tileSprite.clearInstances()
-        tiles.setLen(0)
+        #tileSprite.clearInstances()
+        #tiles.setLen(0)
 
         if eg.inpHeld(inMouseL):
             for _ in countup(0, 1):
@@ -102,15 +102,18 @@ proc main() =
             var randomTile = tiles[randPos]
             tiles.delete(randPos)
             randomTile.delete()
-        tileCountText.setContent($tiles.len())
+        tileCountText.content = $tiles.len()
+
+        fpsText.pos = vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0)
+        tileCountText.pos = vec3f(4.0, eg.screenSize[1].float - 14.0, 10.0)
             
         eg.beginCamera(game.cam)
         tileSprite.draw(eg)
         eg.layer()
         eg.endCamera()
         cursorSprite.draw(eg)
-        fpsText.draw(eg, vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0))
-        tileCountText.draw(eg, vec3f(4.0, eg.screenSize[1].float - 14.0, 10.0))
+        fpsText.draw(eg)
+        tileCountText.draw(eg)
         eg.layer()
 
     eg.destroy()

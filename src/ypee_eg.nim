@@ -34,23 +34,23 @@ type
         image*: GLImage
         size: Vec2i
         width: int32
-    Sprite* = ref object
+    Sprite* = ref object # move this?
         sheet: SpriteSheet
         instances: GLInstances
         center*: Vec2i
-    SpriteInst* = ref object
+    SpriteInst* = ref object # move this
         sprite: Sprite
         tint: ref int
         sheetRect: ref int
         modelMat: ref int
         pos: Vec3f
-    MonoText* = ref object
+    MonoText* = ref object # move this
         sheet: SpriteSheet
         instances: GLInstances
+        modelMats: seq[ref int]
         pos: Vec3f
         str: string
         width*: float
-        changed: bool
     Camera2D* = ref object
         baseMat: Mat4x4f
         viewMat: Mat4x4f
@@ -188,6 +188,7 @@ proc `offset=`*(inst: SpriteInst; v: Vec2i) =
 proc pos*(inst: SpriteInst): Vec3f = inst.pos
 
 proc `pos=`*(inst: var SpriteInst; pos: Vec3f) =
+    if inst.pos == pos: return
     inst.pos = pos
     var pixelPos = inst.pos
     pixelPos.xy = pixelPos.xy.floor()
@@ -203,36 +204,35 @@ proc newMonoText*(size: Vec2i; program: GLProgram; bmpStr: string): MonoText =
     result.instances = newInstances(program, 4)
     result.width = 0.0
 
-proc setContent*(text: var MonoText; str: string) =
+proc `content=`*(text: MonoText; str: string) =
     if str != text.str:
         text.str = str
         text.width = text.sheet.size[0].float * (str.len() - 1).float
-        text.changed = true
-
-proc draw*(text: MonoText; eg: YpeeEg) = # update this
-    if text.changed:
+        text.modelMats.setLen(0)
         text.instances.clear()
         for i, c in text.str:
             let asc = c.int32 - 32
             discard text.instances.add(vec4f(1.0, 1.0, 1.0, 1.0))
             discard text.instances.add(text.sheet.at(vec2i(asc mod text.sheet.width, asc div text.sheet.width)))
-            discard text.instances.add(
-                mat4f()
-                    .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
-                    .scale(text.sheet.size[0].float, text.sheet.size[1].float, 0.0)
+            text.modelMats.add(
+                text.instances.add(
+                    mat4f()
+                        .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
+                        .scale(text.sheet.size.x.float, text.sheet.size.y.float, 0.0)
+                )
             )
-        text.changed = false
-    eg.renderer.draw(text.sheet.shape, text.sheet.image, text.instances)
 
-proc draw*(
-    text: MonoText;
-    eg: YpeeEg;
-    pos: Vec3f;
-) =
-    if pos != text.pos:
-        text.pos = pos
-        text.changed = true
-    text.draw(eg)
+proc `pos=`*(text: MonoText; pos: Vec3f) =
+    if text.pos == pos: return
+    text.pos = pos
+    for i, mat in text.modelMats:
+        text.instances[mat[]] =
+            mat4f()
+                .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
+                .scale(text.sheet.size[0].float, text.sheet.size[1].float, 0.0)
+
+proc draw*(text: MonoText; eg: YpeeEg) =
+    eg.renderer.draw(text.sheet.shape, text.sheet.image, text.instances)
 
 proc newCamera2D*(viewMat: Mat4x4f): Camera2D =
     result = new Camera2D

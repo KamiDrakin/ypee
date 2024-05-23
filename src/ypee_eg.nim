@@ -5,8 +5,6 @@ import custom_utils
 import glrenderer
 
 type
-    ProgramIndex = enum
-        piBase
     ScreenMode* = enum
         smNoFrame
         smFixed
@@ -74,6 +72,7 @@ type
         fullscreen: bool
         projectionCalc: proc(width, height: float32): Mat4x4f
         renderer*: GLRenderer
+        defaultProgram*: GLProgram
         frameCounter*: FrameCounter
         delta*: float
         time*: float
@@ -169,13 +168,16 @@ proc addInstance*(sprite: Sprite): SpriteInst =
     result.sheetRect = sprite.instances.add(sprite.sheet.at(vec2i(0)))
     result.modelMat = sprite.instances.add(mat4f())
 
-proc remove*(inst: SpriteInst) =
-    inst.sprite.instances.del(inst.modelMat)
-    inst.sprite.instances.del(inst.sheetRect)
-    inst.sprite.instances.del(inst.tint)
+proc clearInstances*(sprite: Sprite) =
+    sprite.instances.clear()
 
 proc draw*(sprite: Sprite; eg: YpeeEg) =
     eg.renderer.draw(sprite.sheet.shape, sprite.sheet.image, sprite.instances)
+
+proc delete*(inst: SpriteInst) =
+    inst.sprite.instances.del(inst.modelMat)
+    inst.sprite.instances.del(inst.sheetRect)
+    inst.sprite.instances.del(inst.tint)
 
 proc `tint=`*(inst: SpriteInst; v: Vec4f) =
     inst.sprite.instances[inst.tint[]] = v
@@ -187,9 +189,11 @@ proc pos*(inst: SpriteInst): Vec3f = inst.pos
 
 proc `pos=`*(inst: var SpriteInst; pos: Vec3f) =
     inst.pos = pos
+    var pixelPos = inst.pos
+    pixelPos.xy = pixelPos.xy.floor()
     inst.sprite.instances[inst.modelMat[]] =
         mat4f()
-            .translate(floor(inst.pos) - vec3f(vec2f(inst.sprite.center), 0.0))
+            .translate(inst.pos - vec3f(vec2f(inst.sprite.center), 0.0))
             .scale(inst.sprite.sheet.size.x.float, inst.sprite.sheet.size.y.float, 1.0)
 
 proc newMonoText*(size: Vec2i; program: GLProgram; bmpStr: string): MonoText =
@@ -205,10 +209,7 @@ proc setContent*(text: var MonoText; str: string) =
         text.width = text.sheet.size[0].float * (str.len() - 1).float
         text.changed = true
 
-proc draw*(
-    text: MonoText;
-    eg: YpeeEg;
-) = # update this
+proc draw*(text: MonoText; eg: YpeeEg) = # update this
     if text.changed:
         text.instances.clear()
         for i, c in text.str:
@@ -243,7 +244,8 @@ proc newCamera2D*(viewMat: Mat4x4f): Camera2D =
 
 proc translate*(cam: Camera2D; vec: Vec3f) =
     cam.pos += vec
-    cam.pixelPos = cam.pos.floor()
+    cam.pixelPos.xy = cam.pos.xy.floor()
+    cam.pixelPos.z = cam.pos.z
 
 proc relative*(cam: Camera2D; vec: Vec3f): Vec3f =
     vec - cam.pos
@@ -347,13 +349,14 @@ proc newYpeeEg*(
     const
         vShaderSrc = staticRead("shaders/ypee/ypee.vs")
         fShaderSrc = staticRead("shaders/ypee/ypee.fs")
-    var progBase = newProgram(vShaderSrc, fShaderSrc)
-    progBase.setAttributes(
+    var defProg = newProgram(vShaderSrc, fShaderSrc)
+    defProg.setAttributes(
         @[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)],
         @[("iColor", 4), ("texRect", 4), ("modelMat", 16)]
     )
-    progBase.setUniforms(@[("texSize", 2), ("viewMat", 16), ("projMat", 16)])
-    result.renderer.addProgram(piBase.uint, progBase)
+    defProg.setUniforms(@[("texSize", 2), ("viewMat", 16), ("projMat", 16)])
+    result.defaultProgram = defProg
+    
     result.renderer.setUniform("viewMat", mat4f())
     #eg.renderer.setUniform("viewMat", mat4f().translate(-128.0, -120.0, 50.0))
 

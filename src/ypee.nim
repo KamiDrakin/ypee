@@ -3,7 +3,6 @@ import glm
 import ypee_eg
 
 # temporary
-import glrenderer
 import random
 
 type
@@ -25,17 +24,17 @@ proc main() =
     game.cam = newCamera2D(mat4f())
 
     var
-        cursorSheet = newSpriteSheet(vec2i(0, 0), eg.renderer.program(0), cursorBmp)
+        cursorSheet = newSpriteSheet(vec2i(0, 0), eg.defaultProgram, cursorBmp)
         cursorSprite = newSprite(cursorSheet, vec2i(-6, 5))
 
-    var fpsText = newMonoText(vec2i(8, 8), eg.renderer.program(0), fontBmp)
+    var fpsText = newMonoText(vec2i(8, 8), eg.defaultProgram, fontBmp)
     fpsText.setContent("0.0")
 
     var
-        tileSheet = newSpriteSheet(vec2i(0, 0), eg.renderer.program(0), tileBmp)
+        tileSheet = newSpriteSheet(vec2i(0, 0), eg.defaultProgram, tileBmp)
         tileSprite = newSprite(tileSheet, vec2i(0, 0))
 
-    var tileCountText = newMonoText(vec2i(8, 8), eg.renderer.program(0), fontBmp)
+    var tileCountText = newMonoText(vec2i(8, 8), eg.defaultProgram, fontBmp)
 
     var cursor = cursorSprite.addInstance()
     cursor.tint = vec4f(0.8, 0.4, 0.2, 1.0)
@@ -83,14 +82,17 @@ proc main() =
         if eg.inpPressed(inKeyEsc):
             eg.running = false
 
+        cursor.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
+
+        tileSprite.clearInstances()
+        tiles.setLen(0)
+
         if eg.inpHeld(inMouseL):
             for _ in countup(0, 1):
                 var inst = tileSprite.addInstance()
                 inst.tint = vec4f(sin(eg.time), cos(eg.time), 0.33, 1.0)
                 inst.pos = game.cam.relative(vec3f(vec2f(eg.mouse.screenPos), eg.time))
                 tiles.add(inst)
-
-        cursor.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 
         if tiles.len() > 0:
             for _ in countup(0, 16):
@@ -99,7 +101,7 @@ proc main() =
             let randPos = rand(tiles.len() - 1)
             var randomTile = tiles[randPos]
             tiles.delete(randPos)
-            randomTile.remove()
+            randomTile.delete()
         tileCountText.setContent($tiles.len())
             
         eg.beginCamera(game.cam)

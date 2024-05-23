@@ -36,6 +36,9 @@ proc del*(strd: var Strider; i: int) =
         else:
             0
 
+proc clear*(strd: var Strider) =
+    strd.data.setLen(0)
+
 proc find*(strd: Strider; v: ref int): int =
 
     func valCmp(x: StriderItem; y: ref int): int =

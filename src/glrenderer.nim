@@ -45,7 +45,6 @@ type
         texture: GLuint
         size: (GLsizei, GLsizei)
     GLRenderer* = ref object
-        programs: Table[uint, GLProgram]
         usedProgram: GLProgram
         toDraw: seq[GLDrawItem]
         uniformVals: Table[string, ptr GLfloat]
@@ -178,6 +177,7 @@ proc add(insts1: GLInstances; insts2: GLInstances) =
 
 proc clear*(insts: GLInstances) =
     insts.data.setLen(0)
+    insts.offsets.clear()
 
 proc resize(insts: GLInstances) =
     while insts.data.len() > insts.maxLen:
@@ -300,15 +300,6 @@ proc newRenderer*(): GLRenderer =
     glEnable(GL_CULL_FACE)
     glFrontFace(GL_CW)
 
-proc addProgram*(renderer: GLRenderer; key: uint; program: GLProgram) =
-    renderer.programs[key] = program
-    if renderer.usedProgram == nil:
-        renderer.usedProgram = renderer.programs[key]
-        glUseProgram(program.id)
-
-proc program*(renderer: GLRenderer; key: uint): GLProgram =
-    return renderer.programs[key]
-
 proc setUniform*[T](renderer: GLRenderer; name: string; val: T) =
     let valPtr = cast[ptr T](alloc(sizeof(T)))
     valPtr[] = val
@@ -322,7 +313,7 @@ proc setUniform*[T](renderer: GLRenderer; name: string; val: T) =
     renderer.uniformVals[name] = valFPtr
 
 proc use(renderer: GLRenderer; program: GLProgram) =
-    if renderer.usedProgram != nil and program.id == renderer.usedProgram[].id: return
+    if renderer.usedProgram != nil and program == renderer.usedProgram: return
     renderer.usedProgram = program
     glUseProgram(program.id)
     

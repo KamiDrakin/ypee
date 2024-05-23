@@ -28,7 +28,7 @@ proc main() =
         cursorSprite = newSprite(cursorSheet, vec2i(-6, 5))
 
     var fpsText = newMonoText(vec2i(8, 8), eg.defaultProgram, fontBmp)
-    fpsText.content ="0.0"
+    fpsText.content = "0.0"
 
     var
         tileSheet = newSpriteSheet(vec2i(0, 0), eg.defaultProgram, tileBmp)
@@ -108,12 +108,12 @@ proc main() =
         tileCountText.pos = vec3f(4.0, eg.screenSize[1].float - 14.0, 10.0)
             
         eg.beginCamera(game.cam)
-        tileSprite.draw(eg)
+        tileSprite.draw(eg.renderer)
         eg.layer()
         eg.endCamera()
-        cursorSprite.draw(eg)
-        fpsText.draw(eg)
-        tileCountText.draw(eg)
+        cursorSprite.draw(eg.renderer)
+        fpsText.draw(eg.renderer)
+        tileCountText.draw(eg.renderer)
         eg.layer()
 
     eg.destroy()

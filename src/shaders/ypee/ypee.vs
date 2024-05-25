@@ -6,10 +6,12 @@ layout (location = 2) in vec2 vTexCoords;
 
 layout (location = 3) in vec4 iColor;
 layout (location = 4) in vec4 texRect;
-layout (location = 5) in mat4 modelMat;
+layout (location = 5) in vec4 blendColor;
+layout (location = 6) in mat4 modelMat;
 
 out vec4 color;
 out vec2 texCoords;
+out vec4 fBlendColor;
 
 uniform vec2 texSize;
 uniform mat4 viewMat;
@@ -29,4 +31,5 @@ void main() {
     texRectF.w -= 2 * halfPixels.y;
     vec2 tTexCoords = vTexCoords * texRectF.zw / texSize;
     texCoords = texRectF.xy / texSize + tTexCoords;
+    fBlendColor = blendColor;
 }

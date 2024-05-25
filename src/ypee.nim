@@ -2,17 +2,12 @@ import glm
 
 import ypee_eg
 
-# temporary
-import random
-
 type
     Game = ref object
         eg: YpeeEg
         cam: Camera2D
 
 proc main() =
-    randomize()
-
     const
         cursorBmp = staticRead("textures/cursor.bmp")
         fontBmp = staticRead("textures/font.bmp")
@@ -34,22 +29,27 @@ proc main() =
         tileSheet = newSpriteSheet(vec2i(0, 0), eg.defaultProgram, tileBmp)
         tileSprite = newSprite(tileSheet, vec2i(0, 0))
 
-    var tileCountText = newMonoText(vec2i(8, 8), eg.defaultProgram, fontBmp)
-
     var cursor = cursorSprite.addInstance()
     cursor.tint = vec4f(0.8, 0.4, 0.2, 1.0)
-
-    var tiles: seq[SpriteInst]
-    for y in countup(1, 100):
-        for x in countup(1, 100):
-            var inst = tileSprite.addInstance()
-            inst.tint = vec4f(0.01 * x.float, 0.01 * y.float, 0.33, 1.0)
-            inst.pos = vec3f(x.float * 8.0, y.float * 8.0, -(x + y).float)
-            tiles.add(inst)
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
             fpsText.content = $eg.frameCounter.getFps()
+
+        if eg.inpPressed(inKeyM):
+            eg.screenMode = case eg.screenMode
+                of smNoFrame: smFixed
+                of smFixed: smStretch
+                of smStretch: smAdjustWidth
+                of smAdjustWidth: smNoFrame
+            eg.refreshProjection(eg.winSize)
+            echo "Screen mode: ", eg.screenMode
+
+        if eg.inpPressed(inKeyF11):
+            eg.toggleFullscreen()
+
+        if eg.inpPressed(inKeyEsc):
+            eg.running = false
 
         if eg.inpHeld(inMouseM):
             game.cam.translate(vec3f(vec2f(eg.mouse.screenDelta), 0.0))
@@ -67,45 +67,9 @@ proc main() =
             elif mPos.y == eg.screenSize.y - 1:
                 game.cam.translate(vec3f(0.0, -move, 0.0))
 
-        if eg.inpPressed(inKeyM):
-            eg.screenMode = case eg.screenMode
-                of smNoFrame: smFixed
-                of smFixed: smStretch
-                of smStretch: smAdjustWidth
-                of smAdjustWidth: smNoFrame
-            eg.refreshProjection(eg.winSize)
-            echo "Screen mode: ", eg.screenMode
-
-        if eg.inpPressed(inKeyF11):
-            eg.toggleFullscreen()
-
-        if eg.inpPressed(inKeyEsc):
-            eg.running = false
-
         cursor.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 
-        #tileSprite.clearInstances()
-        #tiles.setLen(0)
-
-        if eg.inpHeld(inMouseL):
-            for _ in countup(0, 1):
-                var inst = tileSprite.addInstance()
-                inst.tint = vec4f(sin(eg.time), cos(eg.time), 0.33, 1.0)
-                inst.pos = game.cam.relative(vec3f(vec2f(eg.mouse.screenPos), eg.time))
-                tiles.add(inst)
-
-        if tiles.len() > 0:
-            for _ in countup(0, 16):
-                var randomTile = tiles[rand(tiles.len() - 1)]
-                randomTile.pos = randomTile.pos + vec3f((-1 + rand(2)).float, (-1 + rand(2)).float, 0.0)
-            let randPos = rand(tiles.len() - 1)
-            var randomTile = tiles[randPos]
-            tiles.delete(randPos)
-            randomTile.delete()
-        tileCountText.content = $tiles.len()
-
         fpsText.pos = vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0)
-        tileCountText.pos = vec3f(4.0, eg.screenSize[1].float - 14.0, 10.0)
             
         eg.beginCamera(game.cam)
         tileSprite.draw(eg.renderer)
@@ -113,7 +77,6 @@ proc main() =
         eg.endCamera()
         cursorSprite.draw(eg.renderer)
         fpsText.draw(eg.renderer)
-        tileCountText.draw(eg.renderer)
         eg.layer()
 
     eg.destroy()

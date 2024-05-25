@@ -229,7 +229,7 @@ proc newYpeeEg*(
     var defProg = newProgram(vShaderSrc, fShaderSrc)
     defProg.setAttributes(
         @[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)],
-        @[("iColor", 4), ("texRect", 4), ("modelMat", 16)]
+        @[("iColor", 4), ("texRect", 4), ("blendColor", 4), ("modelMat", 16)]
     )
     defProg.setUniforms(@[("texSize", 2), ("viewMat", 16), ("projMat", 16)])
     result.defaultProgram = defProg

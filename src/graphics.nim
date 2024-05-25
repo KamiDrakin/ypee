@@ -3,6 +3,9 @@ import glm
 import glrenderer
 
 type
+    Handle* = ref object
+        instances: GLInstances
+        fields: seq[ref int]
     SpriteSheet* = ref object
         shape: GLShape
         image: GLImage
@@ -14,17 +17,29 @@ type
         center*: Vec2i
     SpriteInst* = ref object
         sprite: Sprite
-        tint: ref int
-        sheetRect: ref int
-        modelMat: ref int
+        handle: Handle
         pos: Vec3f
     MonoText* = ref object
         sheet: SpriteSheet
         instances: GLInstances
-        modelMats: seq[ref int]
+        handles: seq[Handle]
         pos: Vec3f
         str: string
         width*: float
+
+proc newHandle*[T: tuple](insts: GLInstances; initFields: T): Handle =
+    result = new Handle
+
+    result.instances = insts
+    for f in initFields.fields:
+        result.fields.add(insts.add(f))
+
+proc `[]=`*[T](handle: Handle; i: int; val: T) =
+    handle.instances[handle.fields[i][]] = val
+
+proc delete*(handle: Handle) =
+    for f in handle.fields:
+        handle.instances.del(f)
 
 proc newSpriteSheet*(size: Vec2i; program: GLProgram; bmpStr: string): SpriteSheet =
     result = new SpriteSheet
@@ -60,9 +75,15 @@ proc addInstance*(sprite: Sprite): SpriteInst =
     result = new SpriteInst
 
     result.sprite = sprite
-    result.tint = sprite.instances.add(vec4f(1.0))
-    result.sheetRect = sprite.instances.add(sprite.sheet.at(vec2i(0)))
-    result.modelMat = sprite.instances.add(mat4f())
+    result.handle = newHandle(
+        result.sprite.instances,
+        (
+            vec4f(1.0),
+            sprite.sheet.at(vec2i(0)),
+            vec4f(0.0),
+            mat4f()
+        )
+    )
 
 proc clearInstances*(sprite: Sprite) =
     sprite.instances.clear()
@@ -71,15 +92,13 @@ proc draw*(sprite: Sprite; renderer: GLRenderer) =
     renderer.draw(sprite.sheet.shape, sprite.sheet.image, sprite.instances)
 
 proc delete*(inst: SpriteInst) =
-    inst.sprite.instances.del(inst.modelMat)
-    inst.sprite.instances.del(inst.sheetRect)
-    inst.sprite.instances.del(inst.tint)
+    inst.handle.delete()
 
 proc `tint=`*(inst: SpriteInst; v: Vec4f) =
-    inst.sprite.instances[inst.tint[]] = v
+    inst.handle[0] = v
 
 proc `offset=`*(inst: SpriteInst; v: Vec2i) =
-    inst.sprite.instances[inst.sheetRect[]] = inst.sprite.sheet.at(v)
+    inst.handle[1] = inst.sprite.sheet.at(v)
 
 proc pos*(inst: SpriteInst): Vec3f = inst.pos
 
@@ -88,7 +107,7 @@ proc `pos=`*(inst: var SpriteInst; pos: Vec3f) =
     inst.pos = pos
     var pixelPos = inst.pos
     pixelPos.xy = pixelPos.xy.floor()
-    inst.sprite.instances[inst.modelMat[]] =
+    inst.handle[3] =
         mat4f()
             .translate(inst.pos - vec3f(vec2f(inst.sprite.center), 0.0))
             .scale(inst.sprite.sheet.size.x.float, inst.sprite.sheet.size.y.float, 1.0)
@@ -104,25 +123,29 @@ proc `content=`*(text: MonoText; str: string) =
     if str != text.str:
         text.str = str
         text.width = text.sheet.size[0].float * (str.len() - 1).float
-        text.modelMats.setLen(0)
         text.instances.clear()
+        text.handles.setLen(0)
         for i, c in text.str:
             let asc = c.int32 - 32
-            discard text.instances.add(vec4f(1.0, 1.0, 1.0, 1.0))
-            discard text.instances.add(text.sheet.at(vec2i(asc mod text.sheet.width, asc div text.sheet.width)))
-            text.modelMats.add(
-                text.instances.add(
-                    mat4f()
-                        .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
-                        .scale(text.sheet.size.x.float, text.sheet.size.y.float, 0.0)
+            text.handles.add(
+                newHandle(
+                    text.instances,
+                    (
+                        vec4f(1.0),
+                        text.sheet.at(vec2i(asc mod text.sheet.width, asc div text.sheet.width)),
+                        vec4f(0.0),
+                        mat4f()
+                            .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
+                            .scale(text.sheet.size.x.float, text.sheet.size.y.float, 0.0),
+                    )
                 )
             )
 
 proc `pos=`*(text: MonoText; pos: Vec3f) =
     if text.pos == pos: return
     text.pos = pos
-    for i, mat in text.modelMats:
-        text.instances[mat[]] =
+    for i, handle in text.handles:
+        handle[3] =
             mat4f()
                 .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
                 .scale(text.sheet.size[0].float, text.sheet.size[1].float, 0.0)

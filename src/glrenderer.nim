@@ -198,7 +198,10 @@ proc destroy*(insts: GLInstances) =
 proc newImage*(bmpStr: string): GLImage =
     result = new GLImage
 
-    let rBmp = decodeBMP(newStringStream(bmpStr))
+    let
+        sStream = newStringStream(bmpStr)
+        rBmp = decodeBMP(sStream)
+    sStream.close()
     assert rBmp != nil
     let
         bmp = convert[string](rBmp, 24)

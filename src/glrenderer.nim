@@ -238,19 +238,18 @@ proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
 
     program.enableAttributes(0)
 
-proc `<`*(shape1, shape2: GLShape): bool =
-    shape1.vao < shape2.vao
-
 func drawItemCmp(x, y: GLDrawItem): int =
     if x.shape < y.shape:
         return -1
     elif x.shape > y.shape:
         return 1
-    if x.image < y.image:
+    if x.image == nil and y.image == nil:
+        return 0
+    if x.image == nil or x.image < y.image:
         return -1
-    elif x.image > y.image:
+    elif y.image == nil or x.image > y.image:
         return 1
-    return 0
+    0
 
 proc resize*(frame: GLFrame; size: Vec2i) =
     if frame.fbo == 0: return
@@ -321,9 +320,13 @@ proc use(renderer: GLRenderer; program: GLProgram) =
     glUseProgram(program.id)
     
 proc use(renderer: GLRenderer; image: GLImage) =
-    let imageSize = vec2f(image.size[0].GLfloat, image.size[1].GLfloat)
-    renderer.setUniform("texSize", cast[ptr GLfloat](imageSize))
-    glBindTexture(GL_TEXTURE_2D, image.texture)
+    var texSize: Vec2f
+    if image != nil:
+        glBindTexture(GL_TEXTURE_2D, image.texture)
+        texSize = vec2f(image.size[0].GLfloat, image.size[1].GLfloat)
+    else:
+        texSize = vec2f(0.0)
+    renderer.setUniform("texSize", cast[ptr GLfloat](texSize))
 
 proc use(renderer: GLRenderer; shape: GLShape) =
     renderer.use(shape.program)
@@ -367,7 +370,7 @@ proc layer(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
         if item.shape != lastShape:
             renderer.use(item.shape)
             lastShape = item.shape
-        if item.image != lastImage:
+        if item.image == nil or item.image != lastImage:
             renderer.use(item.image)
             lastImage = item.image
         renderer.applyUniforms()

@@ -6,6 +6,12 @@ type
     Handle* = ref object
         instances: GLInstances
         fields: seq[ref int]
+    ColoredRectangles* = ref object
+        shape: GLShape
+        instances: GLInstances
+    RectangleInst* = ref object
+        rects: ColoredRectangles
+        handle: Handle
     SpriteSheet* = ref object
         shape: GLShape
         image: GLImage
@@ -18,7 +24,7 @@ type
     SpriteInst* = ref object
         sprite: Sprite
         handle: Handle
-        pos: Vec3f
+        pos: Vec3f # get rid of this
     MonoText* = ref object
         sheet: SpriteSheet
         instances: GLInstances
@@ -41,6 +47,38 @@ proc delete*(handle: Handle) =
     for f in handle.fields:
         handle.instances.del(f)
 
+proc newColoredRectangles*(program: GLProgram): ColoredRectangles =
+    result = new ColoredRectangles
+
+    result.shape = newShape(program, squareVertices)
+    result.instances = newInstances(program, 4)
+
+proc addInstance*(rects: ColoredRectangles): RectangleInst =
+    result = new RectangleInst
+
+    result.rects = rects
+    result.handle = newHandle(
+        result.rects.instances,
+        (
+            vec4f(1.0),
+            vec4f(0.0),
+            vec4f(0.0, 0.0, 0.0, 1.0),
+            mat4f()
+        )
+    )
+
+proc draw*(rects: ColoredRectangles; renderer: GLRenderer) =
+    renderer.draw(rects.shape, nil, rects.instances)
+
+proc `color=`*(rect: RectangleInst; color: Vec3f) =
+    rect.handle[2] = vec4f(color, 1.0)
+
+proc `rect=`*(rect: RectangleInst; area: Vec4f) =
+    rect.handle[3] =
+        mat4f()
+            .translate(area.x + area.z / 2.0, area.y + area.w / 2.0, 0.0)
+            .scale(area.z, area.w, 1.0)
+    
 proc newSpriteSheet*(size: Vec2i; program: GLProgram; bmpStr: string): SpriteSheet =
     result = new SpriteSheet
 

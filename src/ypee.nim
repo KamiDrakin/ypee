@@ -32,6 +32,12 @@ proc main() =
     var cursor = cursorSprite.addInstance()
     cursor.tint = vec4f(0.8, 0.4, 0.2, 1.0)
 
+    var
+        testRects = newColoredRectangles(eg.defaultProgram)
+        testRect = testRects.addInstance()
+    testRect.color = vec3f(0.7, 0.2, 1.0)
+    testRect.rect = vec4f(75.0, 75.0, 100.0, 100.0)
+
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
             fpsText.content = $eg.frameCounter.getFps()
@@ -73,6 +79,7 @@ proc main() =
             
         eg.beginCamera(game.cam)
         tileSprite.draw(eg.renderer)
+        testRects.draw(eg.renderer)
         eg.layer()
         eg.endCamera()
         cursorSprite.draw(eg.renderer)

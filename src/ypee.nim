@@ -11,7 +11,6 @@ proc main() =
     const
         cursorBmp = staticRead("textures/cursor.bmp")
         fontBmp = staticRead("textures/font.bmp")
-        tileBmp = staticRead("textures/hexa.bmp")
     var
         game = new Game
         eg = newYpeeEg(vec2i(320, 200), smFixed, -1)
@@ -25,18 +24,13 @@ proc main() =
     var fpsText = newMonoText(vec2i(8, 8), eg.defaultProgram, fontBmp)
     fpsText.content = "0.0"
 
-    var
-        tileSheet = newSpriteSheet(vec2i(0, 0), eg.defaultProgram, tileBmp)
-        tileSprite = newSprite(tileSheet, vec2i(0, 0))
-
     var cursor = cursorSprite.addInstance()
     cursor.tint = vec4f(0.8, 0.4, 0.2, 1.0)
 
     var
         testRects = newColoredRectangles(eg.defaultProgram)
         testRect = testRects.addInstance()
-    testRect.color = vec3f(0.7, 0.2, 1.0)
-    testRect.rect = vec4f(75.0, 75.0, 100.0, 100.0)
+    testRect.rect = vec4f(75.0, 75.0, 150.0, 100.0)
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
@@ -76,9 +70,10 @@ proc main() =
         cursor.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 
         fpsText.pos = vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0)
+    
+        testRect.color = vec3f(0.5 + sin(eg.time) / 2.0, 0.5 + cos(eg.time) / 2.0, 0.5)
             
         eg.beginCamera(game.cam)
-        tileSprite.draw(eg.renderer)
         testRects.draw(eg.renderer)
         eg.layer()
         eg.endCamera()
@@ -90,3 +85,6 @@ proc main() =
 
 when isMainModule:
     main()
+
+# 36x80 base creature sprites
+# 4 lines of text bottom box = 42px minimum

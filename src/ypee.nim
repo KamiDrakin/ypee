@@ -85,6 +85,3 @@ proc main() =
 
 when isMainModule:
     main()
-
-# 36x80 base creature sprites
-# 4 lines of text bottom box = 42px minimum

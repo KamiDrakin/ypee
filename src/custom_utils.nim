@@ -47,7 +47,7 @@ proc find*(strd: Strider; v: ref int): int =
     strd.data.binarySearch(v, valCmp)
 
 func contains*[T](rect: Vec4[T]; pt: Vec2[T]): bool =
-    pt.x >= rect.x and pt.x <= rect.z and pt.y >= rect.y and pt.y <= rect.w
+    pt.x >= rect.x and pt.x <= rect.x + rect.z and pt.y >= rect.y and pt.y <= rect.y + rect.w
 
 func bmpDataFlip*(data: string; width: int): string =
     result = ""

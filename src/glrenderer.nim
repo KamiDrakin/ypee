@@ -239,17 +239,11 @@ proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
     program.enableAttributes(0)
 
 func drawItemCmp(x, y: GLDrawItem): int =
-    if x.shape < y.shape:
-        return -1
-    elif x.shape > y.shape:
-        return 1
-    if x.image == nil and y.image == nil:
-        return 0
-    if x.image == nil or x.image < y.image:
-        return -1
-    elif y.image == nil or x.image > y.image:
-        return 1
-    0
+    let shapeCmp = cmp(x.shape, y.shape)
+    if shapeCmp != 0:
+        shapeCmp
+    else:
+        cmp(x.image, y.image)
 
 proc resize*(frame: GLFrame; size: Vec2i) =
     if frame.fbo == 0: return

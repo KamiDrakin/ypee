@@ -13,23 +13,26 @@ proc `[]`*(strd: Strider; i: int): ref int =
     strd.data[i].val
 
 proc len*(strd: Strider): int =
-    strd.data.len()
+    strd.data.len
+
+proc high*(strd: Strider): int =
+    strd.data.high
 
 proc add*(strd: var Strider; v: int): ref int =
     var item: StriderItem
     item.val = new int
     item.val[] =
-        if strd.len() > 0:
-            strd.data[strd.len() - 1].val[] + strd.data[strd.len() - 1].offset
+        if strd.len > 0:
+            strd.data[strd.high].val[] + strd.data[strd.high].offset
         else:
             0
     item.offset = v
     strd.data.add(item)
-    strd[strd.len() - 1]
+    strd[strd.high]
 
 proc del*(strd: var Strider; i: int) =
     strd.data.del(i)
-    if i == strd.data.len(): return
+    if i == strd.data.len: return
     strd.data[i].val[] =
         if i > 0:
             strd.data[i - 1].val[] + strd.data[i - 1].offset
@@ -52,5 +55,5 @@ func contains*[T](rect: Vec4[T]; pt: Vec2[T]): bool =
 func bmpDataFlip*(data: string; width: int): string =
     result = ""
     let width = width * 3
-    for i in countdown(data.len() div width, 0):
+    for i in countdown(data.len div width, 0):
         result.add(data.substr(i * width, (i + 1) * width - 1))

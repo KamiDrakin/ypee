@@ -116,8 +116,6 @@ proc newCamera2D*(viewMat: Mat4x4f): Camera2D =
 
     result.baseMat = viewMat
     result.viewMat = viewMat
-    result.pos = vec3f(0.0)
-    result.pixelPos = vec3f(0.0)
 
 proc translate*(cam: Camera2D; vec: Vec3f) =
     cam.pos += vec
@@ -132,12 +130,6 @@ proc unrelative*(cam: Camera2D; vec: Vec3f): Vec3f =
 
 proc newFrameCounter(): FrameCounter =
     result = new FrameCounter
-
-    result.frameCap = 0
-    result.frameCount = 0
-    result.prevTime = 0.0
-    result.frameTimer = 0.0
-    result.elapsed = 0.0
 
 proc tick(fc: FrameCounter): float =
     fc.frameCount += 1
@@ -154,7 +146,7 @@ proc tick(fc: FrameCounter): float =
         fc.elapsed += 1.0
     return delta
 
-proc getFps*(fc: FrameCounter): float =
+proc fps*(fc: FrameCounter): float =
     result = fc.frameCount.float / fc.elapsed
     result = result.round(1)
     fc.frameCount = 0
@@ -266,19 +258,19 @@ proc processEvents*(eg: YpeeEg) =
                     let newHeight = windowEvent.data2
                     eg.refreshProjection(vec2i(newWidth.int32, newHeight.int32))
             of KeyDown:
-                let key = toInput(evt.key().keysym.scancode)
+                let key = toInput(evt.key.keysym.scancode)
                 eg.inputs[key] = true
             of KeyUp:
-                let key = toInput(evt.key().keysym.scancode)
+                let key = toInput(evt.key.keysym.scancode)
                 eg.inputs[key] = false
             of MouseButtonDown:
-                let button = toInputMouse(evt.button().button)
+                let button = toInputMouse(evt.button.button)
                 eg.inputs[button] = true
             of MouseButtonUp:
-                let button = toInputMouse(evt.button().button)
+                let button = toInputMouse(evt.button.button)
                 eg.inputs[button] = false
             of MouseMotion:
-                let motion = evt.evMouseMotion()
+                let motion = evt.evMouseMotion
                 eg.mouse.updatePos(vec2i(motion.x.int32, eg.winSize.y - motion.y.int32 - 1), eg)
             else:
                 discard

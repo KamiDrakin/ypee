@@ -24,24 +24,29 @@ proc main() =
     var fpsText = newMonoText(vec2i(8, 8), eg.defaultProgram, fontBmp)
     fpsText.content = "0.0"
 
-    var cursor = cursorSprite.addInstance()
+    var cursor = newInstance(cursorSprite)
     cursor.tint = vec4f(0.8, 0.4, 0.2, 1.0)
 
     var
-        testRects = newColoredRectangles(eg.defaultProgram)
-        testRect = testRects.addInstance()
-    testRect.rect = vec4f(75.0, 75.0, 150.0, 100.0)
+        testRect = newRectangle(eg.defaultProgram)
+        testRectInsts: seq[RectangleInst]
+    for i in countup(0, 99):
+        var inst = newInstance(testRect)
+        inst.area = vec4f((i mod 10).float * 15.0, (i div 10).float * 10.0, 15.0, 10.0)
+        inst.color = vec3f(0.5 + sin((i mod 10).float) / 2.0, 0.5 + sin((i div 10).float) / 2.0, 0.5)
+        testRectInsts.add(inst)
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
-            fpsText.content = $eg.frameCounter.getFps()
+            fpsText.content = $eg.frameCounter.fps
 
         if eg.inpPressed(inKeyM):
-            eg.screenMode = case eg.screenMode
-                of smNoFrame: smFixed
-                of smFixed: smStretch
-                of smStretch: smAdjustWidth
-                of smAdjustWidth: smNoFrame
+            eg.screenMode =
+                case eg.screenMode
+                    of smNoFrame: smFixed
+                    of smFixed: smStretch
+                    of smStretch: smAdjustWidth
+                    of smAdjustWidth: smNoFrame
             eg.refreshProjection(eg.winSize)
             echo "Screen mode: ", eg.screenMode
 
@@ -70,11 +75,9 @@ proc main() =
         cursor.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 
         fpsText.pos = vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0)
-    
-        testRect.color = vec3f(0.5 + sin(eg.time) / 2.0, 0.5 + cos(eg.time) / 2.0, 0.5)
             
         eg.beginCamera(game.cam)
-        testRects.draw(eg.renderer)
+        testRect.draw(eg.renderer)
         eg.layer()
         eg.endCamera()
         cursorSprite.draw(eg.renderer)

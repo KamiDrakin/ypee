@@ -1,3 +1,5 @@
+import std/algorithm
+
 import glm
 
 import glrenderer
@@ -6,11 +8,11 @@ type
     Handle* = ref object
         instances: GLInstances
         fields: seq[ref int]
-    ColoredRectangles* = ref object
+    Rectangle* = ref object
         shape: GLShape
         instances: GLInstances
     RectangleInst* = ref object
-        rects: ColoredRectangles
+        rect: Rectangle
         handle: Handle
     SpriteSheet* = ref object
         shape: GLShape
@@ -44,21 +46,24 @@ proc `[]=`*[T](handle: Handle; i: int; val: T) =
     handle.instances[handle.fields[i][]] = val
 
 proc delete*(handle: Handle) =
-    for f in handle.fields:
+    for f in handle.fields.reversed:
         handle.instances.del(f)
 
-proc newColoredRectangles*(program: GLProgram): ColoredRectangles =
-    result = new ColoredRectangles
+proc newRectangle*(program: GLProgram): Rectangle =
+    result = new Rectangle
 
     result.shape = newShape(program, squareVertices)
     result.instances = newInstances(program, 4)
 
-proc addInstance*(rects: ColoredRectangles): RectangleInst =
+proc draw*(rect: Rectangle; renderer: GLRenderer) =
+    renderer.draw(rect.shape, nil, rect.instances)
+
+proc newInstance*(rect: Rectangle): RectangleInst =
     result = new RectangleInst
 
-    result.rects = rects
+    result.rect = rect
     result.handle = newHandle(
-        result.rects.instances,
+        result.rect.instances,
         (
             vec4f(1.0),
             vec4f(0.0),
@@ -67,14 +72,14 @@ proc addInstance*(rects: ColoredRectangles): RectangleInst =
         )
     )
 
-proc draw*(rects: ColoredRectangles; renderer: GLRenderer) =
-    renderer.draw(rects.shape, nil, rects.instances)
+proc delete*(inst: RectangleInst) =
+    inst.handle.delete()
 
-proc `color=`*(rect: RectangleInst; color: Vec3f) =
-    rect.handle[2] = vec4f(color, 1.0)
+proc `color=`*(inst: RectangleInst; color: Vec3f) =
+    inst.handle[2] = vec4f(color, 1.0)
 
-proc `rect=`*(rect: RectangleInst; area: Vec4f) =
-    rect.handle[3] =
+proc `area=`*(inst: RectangleInst; area: Vec4f) =
+    inst.handle[3] =
         mat4f()
             .translate(area.x + area.z / 2.0, area.y + area.w / 2.0, 0.0)
             .scale(area.z, area.w, 1.0)
@@ -109,7 +114,13 @@ proc newSprite*(sheet: SpriteSheet; center: Vec2i): Sprite =
 proc newSprite*(sheet: SpriteSheet): Sprite =
     result = newSprite(sheet, -sheet.size / 2)
 
-proc addInstance*(sprite: Sprite): SpriteInst =
+proc clearInstances*(sprite: Sprite) =
+    sprite.instances.clear()
+
+proc draw*(sprite: Sprite; renderer: GLRenderer) =
+    renderer.draw(sprite.sheet.shape, sprite.sheet.image, sprite.instances)
+
+proc newInstance*(sprite: Sprite): SpriteInst =
     result = new SpriteInst
 
     result.sprite = sprite
@@ -123,12 +134,6 @@ proc addInstance*(sprite: Sprite): SpriteInst =
         )
     )
 
-proc clearInstances*(sprite: Sprite) =
-    sprite.instances.clear()
-
-proc draw*(sprite: Sprite; renderer: GLRenderer) =
-    renderer.draw(sprite.sheet.shape, sprite.sheet.image, sprite.instances)
-
 proc delete*(inst: SpriteInst) =
     inst.handle.delete()
 
@@ -138,7 +143,8 @@ proc `tint=`*(inst: SpriteInst; v: Vec4f) =
 proc `offset=`*(inst: SpriteInst; v: Vec2i) =
     inst.handle[1] = inst.sprite.sheet.at(v)
 
-proc pos*(inst: SpriteInst): Vec3f = inst.pos
+proc pos*(inst: SpriteInst): Vec3f =
+    inst.pos
 
 proc `pos=`*(inst: var SpriteInst; pos: Vec3f) =
     if inst.pos == pos: return
@@ -160,7 +166,7 @@ proc newMonoText*(size: Vec2i; program: GLProgram; bmpStr: string): MonoText =
 proc `content=`*(text: MonoText; str: string) =
     if str != text.str:
         text.str = str
-        text.width = text.sheet.size[0].float * (str.len() - 1).float
+        text.width = text.sheet.size[0].float * str.high.float
         text.instances.clear()
         text.handles.setLen(0)
         for i, c in text.str:

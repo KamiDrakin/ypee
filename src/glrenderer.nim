@@ -1,6 +1,7 @@
 import std/tables
 import std/sets
 import std/algorithm
+import std/sequtils
 
 import glm
 import opengl
@@ -47,7 +48,7 @@ type
     GLRenderer* = ref object
         usedProgram: GLProgram
         toDraw: seq[GLDrawItem]
-        uniformVals: Table[string, ptr GLfloat]
+        uniformVals: Table[string, seq[GLfloat]]
         clearColor*: (GLfloat, GLfloat, GLfloat)
         frame*: GLFrame
 
@@ -151,7 +152,7 @@ proc newInstances*(program: GLProgram; initLen: int): GLInstances =
     glBindBuffer(GL_ARRAY_BUFFER, 0)
 
 proc len(insts: GLInstances): int =
-    insts.data.len() div insts.instSize
+    insts.data.len div insts.instSize
 
 proc add*[T](insts: GLInstances; data: T): ref int =
     const size = sizeof(T) div sizeof(GLfloat)
@@ -159,14 +160,16 @@ proc add*[T](insts: GLInstances; data: T): ref int =
     result = insts.offsets.add(size)
     insts.data.add(data)
 
-proc del*(insts: GLInstances; offset: ref int) =
-    let i = insts.offsets.find(offset)
-    if i == insts.offsets.len() - 1:
-        for i in countdown(insts.data.len() - 1, offset[]):
-            insts.data.del(i)
-    else:
-        for i in countdown(insts.offsets[i + 1][] - 1, offset[]):
-            insts.data.del(i)
+proc del*(insts: GLInstances; offset: ref int) =  
+    let
+        i = insts.offsets.find(offset)
+        last =
+            if i == insts.offsets.high:
+                insts.data.high
+            else:
+                insts.offsets[i + 1][] - 1
+    for i in countdown(last, offset[]):
+        insts.data.del(i)
     insts.offsets.del(i)
 
 proc `[]=`*[T](insts: GLInstances; i: int; v: T) =
@@ -180,15 +183,15 @@ proc clear*(insts: GLInstances) =
     insts.offsets.clear()
 
 proc resize(insts: GLInstances) =
-    while insts.data.len() > insts.maxLen:
+    while insts.data.len > insts.maxLen:
         insts.maxLen *= 2
     glBufferData(GL_ARRAY_BUFFER, (insts.maxLen * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
 
 proc bufferData(insts: GLInstances) =
     glBindBuffer(GL_ARRAY_BUFFER, insts.buffer)
-    if insts.data.len() > insts.maxLen:
+    if insts.data.len > insts.maxLen:
         insts.resize()
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (insts.data.len() * sizeof(GLfloat)).GLsizeiptr, insts.data[0].addr)
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (insts.data.len * sizeof(GLfloat)).GLsizeiptr, insts.data[0].addr)
     glBindBuffer(GL_ARRAY_BUFFER, 0)
 
 proc destroy*(insts: GLInstances) =
@@ -223,7 +226,7 @@ proc `<`*(image1, image2: GLImage): bool =
 proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
     result = new GLShape
 
-    result.nVertices = vertices.len().GLsizei
+    result.nVertices = vertices.len.GLsizei
     result.program = program
     
     glGenVertexArrays(1, result.vao.addr)
@@ -234,7 +237,7 @@ proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
     glBindVertexArray(result.vao)
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo)
-    glBufferData(GL_ARRAY_BUFFER, (vertices.len() * sizeof(GLVertex)).GLsizeiptr, vertices[0].addr, GL_STATIC_DRAW)
+    glBufferData(GL_ARRAY_BUFFER, (vertices.len * sizeof(GLVertex)).GLsizeiptr, vertices[0].addr, GL_STATIC_DRAW)
 
     program.enableAttributes(0)
 
@@ -289,7 +292,6 @@ proc newFrame*(size: Vec2i): GLFrame =
 
 proc newRenderer*(): GLRenderer =
     result = new GLRenderer
-    result.usedProgram = nil
     loadExtensions()
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -297,16 +299,11 @@ proc newRenderer*(): GLRenderer =
     glFrontFace(GL_CW)
 
 proc setUniform*[T](renderer: GLRenderer; name: string; val: T) =
-    let valPtr = cast[ptr T](alloc(sizeof(T)))
-    valPtr[] = val
-    let valFPtr = cast[ptr GLfloat](valPtr)
-    if not renderer.uniformVals.hasKey(name):
-        renderer.uniformVals[name] = valFPtr
-        return
-    let oldPtr = renderer.uniformVals[name]
-    if oldPtr != nil:
-        dealloc(oldPtr)
-    renderer.uniformVals[name] = valFPtr
+    const size = sizeof(T) div sizeof(GLfloat)
+    let
+        valFloats = cast[array[size, GLfloat]](val)
+        valSeq = valFLoats.toSeq
+    renderer.uniformVals[name] = valSeq
 
 proc use(renderer: GLRenderer; program: GLProgram) =
     if renderer.usedProgram != nil and program == renderer.usedProgram: return
@@ -329,13 +326,13 @@ proc use(renderer: GLRenderer; shape: GLShape) =
 proc applyUniforms(renderer: GLRenderer) =
     let uniforms = renderer.usedProgram[].uniforms
     for k, (uLoc, uSize) in uniforms:
-        let val = renderer.uniformVals[k]
+        let valPtr = renderer.uniformVals[k][0].addr
         case uSize
-            of 1: glUniform1fv(uLoc, 1.GLsizei, val)
-            of 2: glUniform2fv(uLoc, 1.GLsizei, val)
-            of 3: glUniform3fv(uLoc, 1.GLsizei, val)
-            of 4: glUniform4fv(uLoc, 1.GLsizei, val)
-            of 16: glUniformMatrix4fv(uLoc, 1.GLsizei, false, val)
+            of 1: glUniform1fv(uLoc, 1.GLsizei, valPtr)
+            of 2: glUniform2fv(uLoc, 1.GLsizei, valPtr)
+            of 3: glUniform3fv(uLoc, 1.GLsizei, valPtr)
+            of 4: glUniform4fv(uLoc, 1.GLsizei, valPtr)
+            of 16: glUniformMatrix4fv(uLoc, 1.GLsizei, false, valPtr)
             else: discard
 
 proc draw*(renderer: GLRenderer; shape: GLShape; image: GLImage; insts: GLInstances) =
@@ -360,7 +357,7 @@ proc layer(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
         lastShape: GLShape
         lastImage: GLImage
     for item in renderer.toDraw.mitems:
-        if item.instances.len() == 0: continue
+        if item.instances.len == 0: continue
         if item.shape != lastShape:
             renderer.use(item.shape)
             lastShape = item.shape
@@ -369,7 +366,7 @@ proc layer(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
             lastImage = item.image
         renderer.applyUniforms()
         item.instances.bufferData()
-        glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape.nVertices, item.instances.len().GLsizei)
+        glDrawArraysInstanced(GL_TRIANGLES, 0, item.shape.nVertices, item.instances.len.GLsizei)
         item.instances.clear()
 
 proc layer*(renderer: GLRenderer; bufferSize: Vec2i) =

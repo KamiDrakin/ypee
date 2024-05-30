@@ -17,16 +17,14 @@ type
     SpriteSheet* = ref object
         shape: GLShape
         image: GLImage
+        instances: GLInstances
         size: Vec2i
         width: int32
     Sprite* = ref object
         sheet: SpriteSheet
-        instances: GLInstances
-        center*: Vec2i
-    SpriteInst* = ref object
-        sprite: Sprite
         handle: Handle
-        pos: Vec3f # get rid of this
+        center*: Vec2i
+        pos: Vec3f
     MonoText* = ref object
         sheet: SpriteSheet
         instances: GLInstances
@@ -89,6 +87,7 @@ proc newSpriteSheet*(size: Vec2i; program: GLProgram; bmpStr: string): SpriteShe
 
     result.shape = newShape(program, squareVertices)
     result.image = newImage(bmpStr)
+    result.instances = newInstances(program, 4)
     result.size =
         if size.x == 0 or size.y == 0:
             vec2i(result.image.size[0], result.image.size[1])
@@ -96,71 +95,61 @@ proc newSpriteSheet*(size: Vec2i; program: GLProgram; bmpStr: string): SpriteShe
             size
     result.width = result.image.size[0] div result.size.x
 
-proc at*(sheet: SpriteSheet; pos: Vec2i): GLRect =
+proc clearInstances*(sheet: SpriteSheet) =
+    sheet.instances.clear()
+
+proc at*(sheet: SpriteSheet; pos: Vec2i): Vec4f =
     let
         x = pos.x.float
         y = pos.y.float
         w = sheet.size.x.float
         h = sheet.size.y.float
-    rect(x * w, y * h, w, h)
+    vec4f(x * w, y * h, w, h)
+
+proc draw*(sheet: SpriteSheet; renderer: GLRenderer) =
+    renderer.draw(sheet.shape, sheet.image, sheet.instances)
 
 proc newSprite*(sheet: SpriteSheet; center: Vec2i): Sprite =
     result = new Sprite
 
     result.sheet = sheet
-    result.instances = newInstances(sheet.shape.program, 4)
     result.center = center
-
-proc newSprite*(sheet: SpriteSheet): Sprite =
-    result = newSprite(sheet, -sheet.size / 2)
-
-proc clearInstances*(sprite: Sprite) =
-    sprite.instances.clear()
-
-proc draw*(sprite: Sprite; renderer: GLRenderer) =
-    renderer.draw(sprite.sheet.shape, sprite.sheet.image, sprite.instances)
-
-proc newInstance*(sprite: Sprite): SpriteInst =
-    result = new SpriteInst
-
-    result.sprite = sprite
     result.handle = newHandle(
-        result.sprite.instances,
+        sheet.instances,
         (
             vec4f(1.0),
-            sprite.sheet.at(vec2i(0)),
+            sheet.at(vec2i(0)),
             vec4f(0.0),
             mat4f()
         )
     )
 
-proc delete*(inst: SpriteInst) =
-    inst.handle.delete()
+proc newSprite*(sheet: SpriteSheet): Sprite =
+    result = newSprite(sheet, -sheet.size / 2)
 
-proc `tint=`*(inst: SpriteInst; v: Vec4f) =
-    inst.handle[0] = v
+proc delete*(sprite: Sprite) =
+    sprite.handle.delete()
 
-proc `offset=`*(inst: SpriteInst; v: Vec2i) =
-    inst.handle[1] = inst.sprite.sheet.at(v)
+proc `tint=`*(sprite: Sprite; v: Vec4f) =
+    sprite.handle[0] = v
 
-proc pos*(inst: SpriteInst): Vec3f =
-    inst.pos
+proc `offset=`*(sprite: Sprite; v: Vec2i) =
+    sprite.handle[1] = sprite.sheet.at(v)
 
-proc `pos=`*(inst: var SpriteInst; pos: Vec3f) =
-    if inst.pos == pos: return
-    inst.pos = pos
-    var pixelPos = inst.pos
+proc `pos=`*(sprite: var Sprite; pos: Vec3f) =
+    sprite.pos = pos
+    var pixelPos = sprite.pos
     pixelPos.xy = pixelPos.xy.floor()
-    inst.handle[3] =
+    sprite.handle[3] =
         mat4f()
-            .translate(inst.pos - vec3f(vec2f(inst.sprite.center), 0.0))
-            .scale(inst.sprite.sheet.size.x.float, inst.sprite.sheet.size.y.float, 1.0)
+            .translate(sprite.pos - vec3f(vec2f(sprite.center), 0.0))
+            .scale(sprite.sheet.size.x.float, sprite.sheet.size.y.float, 1.0)
 
-proc newMonoText*(size: Vec2i; program: GLProgram; bmpStr: string): MonoText =
+proc newMonoText*(sheet: SpriteSheet): MonoText =
     result = new MonoText
 
-    result.sheet = newSpriteSheet(size, program, bmpStr)
-    result.instances = newInstances(program, 4)
+    result.sheet = sheet
+    result.instances = newInstances(sheet.shape.program, 4)
     result.width = 0.0
 
 proc `content=`*(text: MonoText; str: string) =
@@ -186,7 +175,6 @@ proc `content=`*(text: MonoText; str: string) =
             )
 
 proc `pos=`*(text: MonoText; pos: Vec3f) =
-    if text.pos == pos: return
     text.pos = pos
     for i, handle in text.handles:
         handle[3] =

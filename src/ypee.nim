@@ -1,40 +1,82 @@
+import std/random
+
 import glm
 
 import ypee_eg
 
+const
+    cursorBmp = staticRead("textures/cursor.bmp")
+    fontBmp = staticRead("textures/font.bmp")
+    tileBmp = staticRead("textures/hexa.bmp")
+
 type
+    Tile = ref object
+        pos: Vec2f
+        adjTiles: seq[Tile]
+    Board = ref object
+        tiles: seq[Tile]
+    Combat = ref object
+        board: Board
     Game = ref object
         eg: YpeeEg
         cam: Camera2D
+        combat: Combat
+
+proc newTile(pos: Vec2f): Tile =
+    result = new Tile
+
+    result.pos = pos
+
+proc newBoard(): Board =
+    const
+        positions = [
+            [-1.0,  2.0], [ 0.0,  2.0], [ 1.0,  2.0], [ 2.0,  2.0],
+            [-1.5,  1.0], [-0.5,  1.0], [ 0.5,  1.0], [ 1.5,  1.0], [ 2.5,  1.0],
+            [-2.0,  0.0], [-1.0,  0.0], [-0.0,  0.0], [ 1.0,  0.0], [ 2.0,  0.0], [ 3.0,  0.0],
+            [-1.5, -1.0], [-0.5, -1.0], [ 0.5, -1.0], [ 1.5, -1.0], [ 2.5, -1.0],
+            [-1.0, -2.0], [ 0.0, -2.0], [ 1.0, -2.0], [ 2.0, -2.0]
+        ]
+
+    result = new Board
+
+    for pos in positions:
+        result.tiles.add(newTile(vec2f(pos[0], pos[1])))
 
 proc main() =
-    const
-        cursorBmp = staticRead("textures/cursor.bmp")
-        fontBmp = staticRead("textures/font.bmp")
+    randomize()
+
     var
         game = new Game
         eg = newYpeeEg(vec2i(320, 200), smFixed, -1)
     game.eg = eg
     game.cam = newCamera2D(mat4f())
 
+    var board = newBoard()
+
     var
         cursorSheet = newSpriteSheet(vec2i(0, 0), eg.defaultProgram, cursorBmp)
         cursorSprite = newSprite(cursorSheet, vec2i(-6, 5))
-
-    var fpsText = newMonoText(vec2i(8, 8), eg.defaultProgram, fontBmp)
-    fpsText.content = "0.0"
-
-    var cursor = newInstance(cursorSprite)
-    cursor.tint = vec4f(0.8, 0.4, 0.2, 1.0)
+    cursorSprite.tint = vec4f(0.8, 0.4, 0.2, 1.0)
 
     var
-        testRect = newRectangle(eg.defaultProgram)
-        testRectInsts: seq[RectangleInst]
-    for i in countup(0, 99):
-        var inst = newInstance(testRect)
-        inst.area = vec4f((i mod 10).float * 15.0, (i div 10).float * 10.0, 15.0, 10.0)
-        inst.color = vec3f(0.5 + sin((i mod 10).float) / 2.0, 0.5 + sin((i div 10).float) / 2.0, 0.5)
-        testRectInsts.add(inst)
+        fontSheet = newSpriteSheet(vec2i(8, 8), eg.defaultProgram, fontBmp)
+        fpsText = newMonoText(fontSheet)
+    fpsText.content = "0.0"
+
+    var
+        tileSheet = newSpriteSheet(vec2i(32, 24), eg.defaultProgram, tileBmp)
+        tileSprites: seq[Sprite]
+    for tile in board.tiles:
+        var sprite = newSprite(tileSheet)
+        sprite.pos = vec3f(tile.pos * vec2f(30.0, 18.0), 0.0)
+        sprite.tint = vec4f(0.5 + sin(rand(2.0) * PI) / 2.0, 0.5 + cos(rand(2.0) * PI) / 2.0, 0.5, 1.0)
+        sprite.offset = vec2i(1, 0)
+        tileSprites.add(sprite)
+        sprite = newSprite(tileSheet)
+        sprite.pos = vec3f(tile.pos * vec2f(30.0, 18.0), 1.0)
+        sprite.tint = vec4f(1.0)
+        sprite.offset = vec2i(0, 0)
+        tileSprites.add(sprite)
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
@@ -72,15 +114,15 @@ proc main() =
             elif mPos.y == eg.screenSize.y - 1:
                 game.cam.translate(vec3f(0.0, -move, 0.0))
 
-        cursor.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
+        cursorSprite.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 
         fpsText.pos = vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0)
             
         eg.beginCamera(game.cam)
-        testRect.draw(eg.renderer)
+        tileSheet.draw(eg.renderer)
         eg.layer()
         eg.endCamera()
-        cursorSprite.draw(eg.renderer)
+        cursorSheet.draw(eg.renderer)
         fpsText.draw(eg.renderer)
         eg.layer()
 

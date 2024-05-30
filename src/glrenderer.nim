@@ -20,8 +20,6 @@ type
         instAttributes: seq[(GLuint, GLsizei)]
         instSize: GLsizei
         uniforms: Table[string, (GLint, GLsizei)]
-    GLRect* = object
-        x, y, w, h: GLfloat
     GLInstances* = ref object
         data: seq[GLfloat]
         offsets: Strider
@@ -133,9 +131,6 @@ proc enableAttributes(program: GLProgram; divisor: GLuint) =
             if divisor > 0:
                 glVertexAttribDivisor(aLoc + i, divisor)
             totalSize += aSize
-
-proc rect*(x, y, w, h: GLfloat): GLRect =
-    GLRect(x: x, y: y, w: w, h: h)
 
 proc newInstances*(program: GLProgram; initLen: int): GLInstances =
     result = new GLInstances

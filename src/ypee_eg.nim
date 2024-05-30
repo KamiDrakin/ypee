@@ -1,3 +1,5 @@
+import std/sugar
+
 import glm
 import sdl2
 
@@ -21,6 +23,7 @@ type
         inKeyDown
         inKeyLeft
         inKeyRight
+        inKeySpace
         inKeyEsc
         inKeyF11
         inKeyM
@@ -72,6 +75,7 @@ proc toInput(key: Scancode): Input =
         of SDL_SCANCODE_DOWN: inKeyDown
         of SDL_SCANCODE_LEFT: inKeyLeft
         of SDL_SCANCODE_RIGHT: inKeyRight
+        of SDL_SCANCODE_SPACE: inKeySpace
         of SDL_SCANCODE_ESCAPE: inKeyEsc
         of SDL_SCANCODE_F11: inKeyF11
         of SDL_SCANCODE_M: inKeyM
@@ -193,8 +197,7 @@ proc newYpeeEg*(
     result.screenSize = screenSize
     result.screenMode = screenMode
     result.projectionCalc =
-        proc(width, height: float32): Mat4x4f = ortho[float32](0.0, width, 0.0, height, -1000.0, 1000.0)
-        #proc(width, height: float32): Mat4x4f = perspective[float32](90.0, height / width, 0.1, 1000.0)
+        (width, height: float32) => ortho[float32](0.0, width, 0.0, height, -1000.0, 1000.0)
 
     discard sdl2.init(INIT_EVERYTHING)
 
@@ -227,7 +230,6 @@ proc newYpeeEg*(
     result.defaultProgram = defProg
     
     result.renderer.setUniform("viewMat", mat4f())
-    #eg.renderer.setUniform("viewMat", mat4f().translate(-128.0, -120.0, 50.0))
 
     result.frameCounter = newFrameCounter()
     result.frameCounter.frameCap = fpsCap

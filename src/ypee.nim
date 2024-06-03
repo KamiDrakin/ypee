@@ -29,15 +29,17 @@ type
         combat: Combat
 
 proc newTile(pos: Vec2f): Tile =
+    const tileSize = vec2f(30.0, 18.0)
+    
     result = new Tile
 
     result.pos = pos
     result.sprites[0] = newSprite(tileSheet)
-    result.sprites[0].pos = vec3f(pos * vec2f(30.0, 18.0), 0.0)
+    result.sprites[0].pos = vec3f(pos * tileSize, 0.0)
     result.sprites[0].tint = vec4f(0.5 + sin(rand(2.0) * PI) / 2.0, 0.5 + sin(rand(2.0) * PI) / 2.0, 0.5 + sin(rand(2.0) * PI) / 2.0, 1.0)
     result.sprites[0].offset = vec2i(1, 0)
     result.sprites[1] = newSprite(tileSheet)
-    result.sprites[1].pos = vec3f(pos * vec2f(30.0, 18.0), 1.0)
+    result.sprites[1].pos = vec3f(pos * tileSize, 1.0)
     result.sprites[1].tint = vec4f(1.0)
     result.sprites[1].offset = vec2i(0, 0)
 

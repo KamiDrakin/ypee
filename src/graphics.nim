@@ -139,7 +139,7 @@ proc `offset=`*(sprite: Sprite; v: Vec2i) =
 proc `pos=`*(sprite: var Sprite; pos: Vec3f) =
     sprite.pos = pos
     var pixelPos = sprite.pos
-    pixelPos.xy = pixelPos.xy.floor()
+    pixelPos.xy = pixelPos.xy.floor
     sprite.handle[3] =
         mat4f()
             .translate(sprite.pos - vec3f(vec2f(sprite.center), 0.0))

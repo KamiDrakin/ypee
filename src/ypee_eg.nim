@@ -123,7 +123,7 @@ proc newCamera2D*(viewMat: Mat4x4f): Camera2D =
 
 proc translate*(cam: Camera2D; vec: Vec3f) =
     cam.pos += vec
-    cam.pixelPos.xy = cam.pos.xy.floor()
+    cam.pixelPos.xy = cam.pos.xy.floor
     cam.pixelPos.z = cam.pos.z
 
 proc relative*(cam: Camera2D; vec: Vec3f): Vec3f =
@@ -236,7 +236,7 @@ proc newYpeeEg*(
 
     result.renderer.clearColor = (0.0, 0.0, 0.0)
     result.renderer.frame = newFrame(screenSize)
-    let winSize = result.window.getSize()
+    let winSize = result.window.getSize
     result.refreshProjection(cast[Vec2i](winSize))
 
     result.mouse.screenPos = screenSize / 2

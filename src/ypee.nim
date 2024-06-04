@@ -20,13 +20,16 @@ type
         pos: Vec2f
         adjTiles: seq[Tile]
     Board = ref object
+        screenPos: Vec2f
         tiles: seq[Tile]
     Combat = ref object
         board: Board
+    Overworld = ref object
     Game = ref object
         eg: YpeeEg
         cam: Camera2D
         combat: Combat
+        overworld: Overworld
 
 proc newTile(pos: Vec2f): Tile =
     const tileSize = vec2f(30.0, 18.0)
@@ -57,6 +60,24 @@ proc newBoard(): Board =
     for pos in positions:
         result.tiles.add(newTile(vec2f(pos[0], pos[1])))
 
+# maybe not needed, probably can be bypassed by camera tricks
+# but eh it's 48 iterations
+proc setScreenPos(board: Board; screenPos: Vec2f) =
+    const tileSize = vec2f(30.0, 18.0)
+    if board.screenPos == screenPos: return
+    board.screenPos = screenPos
+    for tile in board.tiles:
+        for i in [0, 1]:
+            tile.sprites[i].pos = vec3f(screenPos + tile.pos * tileSize, i.float)
+
+proc newCombat(): Combat =
+    result = new Combat
+
+    result.board = newBoard()
+
+proc newOverworld(): Overworld =
+    result = new Overworld
+
 proc main() =
     randomize()
 
@@ -67,16 +88,19 @@ proc main() =
     game.cam = newCamera2D(mat4f())
 
     cursorSheet = newSpriteSheet(vec2i(0, 0), eg.defaultProgram, cursorBmp)
+    fontSheet = newSpriteSheet(vec2i(8, 8), eg.defaultProgram, fontBmp)
+    tileSheet = newSpriteSheet(vec2i(32, 24), eg.defaultProgram, tileBmp)
+
+    game.combat = newCombat()
+    game.combat.board.setScreenPos(vec2f(128.0, 108.0))
+
+    game.overworld = newOverworld()
+    
     var cursorSprite = newSprite(cursorSheet, vec2i(-6, 5))
     cursorSprite.tint = vec4f(0.8, 0.4, 0.2, 1.0)
 
-    fontSheet = newSpriteSheet(vec2i(8, 8), eg.defaultProgram, fontBmp)
     var fpsText = newMonoText(fontSheet)
     fpsText.content = "0.0"
-
-    tileSheet = newSpriteSheet(vec2i(32, 24), eg.defaultProgram, tileBmp)
-
-    discard newBoard()
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:

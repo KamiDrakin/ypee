@@ -51,7 +51,7 @@ proc newRectangle*(program: GLProgram): Rectangle =
     result = new Rectangle
 
     result.shape = newShape(program, squareVertices)
-    result.instances = newInstances(program, 4)
+    result.instances = newInstances(result.shape, 4)
 
 proc draw*(rect: Rectangle; renderer: GLRenderer) =
     renderer.draw(rect.shape, nil, rect.instances)
@@ -87,7 +87,7 @@ proc newSpriteSheet*(size: Vec2i; program: GLProgram; bmpStr: string): SpriteShe
 
     result.shape = newShape(program, squareVertices)
     result.image = newImage(bmpStr)
-    result.instances = newInstances(program, 4)
+    result.instances = newInstances(result.shape, 4)
     result.size =
         if size.x == 0 or size.y == 0:
             vec2i(result.image.size[0], result.image.size[1])
@@ -149,7 +149,7 @@ proc newMonoText*(sheet: SpriteSheet): MonoText =
     result = new MonoText
 
     result.sheet = sheet
-    result.instances = newInstances(sheet.shape.program, 4)
+    result.instances = newInstances(sheet.shape, 4)
     result.width = 0.0
 
 proc `content=`*(text: MonoText; str: string) =

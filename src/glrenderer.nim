@@ -132,19 +132,24 @@ proc enableAttributes(program: GLProgram; divisor: GLuint) =
                 glVertexAttribDivisor(aLoc + i, divisor)
             totalSize += aSize
 
-proc newInstances*(program: GLProgram; initLen: int): GLInstances =
+proc newInstances*(shape: GLShape; initLen: int): GLInstances =
     result = new GLInstances
 
     result.data = newSeqOfCap[GLfloat](initLen)
-    result.instSize = program.instSize
+    result.instSize = shape.program.instSize
     result.maxLen = initLen
 
-    glGenBuffers(1, result.buffer.addr)
 
+    glGenBuffers(1, result.buffer.addr)
+    
+    glBindVertexArray(shape.vao)
     glBindBuffer(GL_ARRAY_BUFFER, result.buffer)
+    
     glBufferData(GL_ARRAY_BUFFER, (result.maxLen * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
-    program.enableAttributes(1)
+    shape.program.enableAttributes(1)
+
     glBindBuffer(GL_ARRAY_BUFFER, 0)
+    glBindVertexArray(0)
 
 proc len(insts: GLInstances): int =
     insts.data.len div insts.instSize
@@ -230,11 +235,14 @@ proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
     glGenBuffers(1, vbo.addr)
 
     glBindVertexArray(result.vao)
-
     glBindBuffer(GL_ARRAY_BUFFER, vbo)
+    
     glBufferData(GL_ARRAY_BUFFER, (vertices.len * sizeof(GLVertex)).GLsizeiptr, vertices[0].addr, GL_STATIC_DRAW)
 
     program.enableAttributes(0)
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0)
+    glBindVertexArray(0)
 
 func drawItemCmp(x, y: GLDrawItem): int =
     let shapeCmp = cmp(x.shape, y.shape)

@@ -243,7 +243,9 @@ proc newYpeeEg*(
     showCursor(false)
     discard setRelativeMouseMode(true.Bool32)
 
-proc destroy*(eg: YpeeEg) =
+proc delete*(eg: YpeeEg) =
+    eg.defaultProgram.delete()
+    eg.renderer.delete()
     eg.window.destroy()
 
 proc processEvents*(eg: YpeeEg) =

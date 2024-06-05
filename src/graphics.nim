@@ -53,6 +53,10 @@ proc newRectangle*(program: GLProgram): Rectangle =
     result.shape = newShape(program, squareVertices)
     result.instances = newInstances(result.shape, 4)
 
+proc delete*(rect: Rectangle) =
+    rect.instances.delete()
+    rect.shape.delete()
+
 proc draw*(rect: Rectangle; renderer: GLRenderer) =
     renderer.draw(rect.shape, nil, rect.instances)
 
@@ -94,6 +98,11 @@ proc newSpriteSheet*(size: Vec2i; program: GLProgram; bmpStr: string): SpriteShe
         else:
             size
     result.width = result.image.size[0] div result.size.x
+
+proc delete*(sheet: SpriteSheet) =
+    sheet.instances.delete()
+    sheet.image.delete()
+    sheet.shape.delete()
 
 proc clearInstances*(sheet: SpriteSheet) =
     sheet.instances.clear()
@@ -151,6 +160,10 @@ proc newMonoText*(sheet: SpriteSheet): MonoText =
     result.sheet = sheet
     result.instances = newInstances(sheet.shape, 4)
     result.width = 0.0
+
+proc delete*(text: MonoText) =
+    text.instances.delete()
+    text.sheet.delete()
 
 proc `content=`*(text: MonoText; str: string) =
     if str != text.str:

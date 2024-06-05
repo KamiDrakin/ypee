@@ -150,7 +150,10 @@ proc main() =
         fpsText.draw(eg.renderer)
         eg.layer()
 
-    eg.destroy()
+    tileSheet.delete()
+    fontSheet.delete()
+    cursorSheet.delete()
+    eg.delete()
 
 when isMainModule:
     main()

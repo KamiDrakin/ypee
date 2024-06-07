@@ -129,6 +129,9 @@ proc translate*(cam: Camera2D; vec: Vec3f) =
 proc relative*(cam: Camera2D; vec: Vec3f): Vec3f =
     vec - cam.pos
 
+proc relative*(cam: Camera2D; vec: Vec2f): Vec2f =
+    vec - cam.pos.xy
+
 proc unrelative*(cam: Camera2D; vec: Vec3f): Vec3f =
     vec + cam.pos
 

@@ -90,8 +90,6 @@ proc newProgram*(vShaderSrc, fShaderSrc: string): GLProgram =
     glDeleteShader(vShader)
     glDeleteShader(fShader)
 
-    echo result.id
-
 proc delete*(program: GLProgram) =
     try:
         glDeleteProgram(program.id)
@@ -389,7 +387,7 @@ proc draw*(renderer: GLRenderer; shape: GLShape; image: GLImage; insts: GLInstan
         item.instances[] = insts[]
         renderer.toDraw.add(item)
     else:
-        renderer.toDraw[searchPos].instances.add(insts)
+        renderer.toDraw[searchPos].instances.add(insts) # someday someone will optimise this
 
 proc layer(renderer: GLRenderer; bufferSize: (GLsizei, GLsizei)) =
     glViewport(0, 0, bufferSize[0], bufferSize[1])

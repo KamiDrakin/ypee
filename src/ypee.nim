@@ -2,6 +2,7 @@ import std/random
 
 import glm
 
+import custom_utils
 import ypee_eg
 
 const
@@ -19,6 +20,7 @@ type
         sprites: array[2, Sprite]
         pos: Vec2f
         adjTiles: seq[Tile]
+        clickbox: seq[Vec2f]
     Board = ref object
         screenPos: Vec2f
         tiles: seq[Tile]
@@ -32,7 +34,9 @@ type
         overworld: Overworld
 
 proc newTile(pos: Vec2f): Tile =
-    const tileSize = vec2f(30.0, 18.0)
+    const
+        tileSize = vec2f(30.0, 18.0)
+        tileScale = vec2f(30.0, 24.0)
     
     result = new Tile
 
@@ -45,6 +49,7 @@ proc newTile(pos: Vec2f): Tile =
     result.sprites[1].pos = vec3f(pos * tileSize, 1.0)
     result.sprites[1].tint = vec4f(1.0)
     result.sprites[1].offset = vec2i(0, 0)
+    result.clickbox = squareHexagonPoints(pos * tileSize, tileScale)
 
 proc newBoard(): Board =
     const positions = [
@@ -63,12 +68,15 @@ proc newBoard(): Board =
 # maybe not needed, probably can be bypassed by camera tricks
 # but eh it's 48 iterations
 proc setScreenPos(board: Board; screenPos: Vec2f) =
-    const tileSize = vec2f(30.0, 18.0)
+    const
+        tileSize = vec2f(30.0, 18.0)
+        tileScale = vec2f(30.0, 24.0)
     if board.screenPos == screenPos: return
     board.screenPos = screenPos
     for tile in board.tiles:
         for i in [0, 1]:
             tile.sprites[i].pos = vec3f(screenPos + tile.pos * tileSize, i.float)
+        tile.clickbox = squareHexagonPoints(screenPos + tile.pos * tileSize, tileScale)
 
 proc newCombat(): Combat =
     result = new Combat
@@ -141,6 +149,12 @@ proc main() =
         cursorSprite.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 
         fpsText.pos = vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0)
+
+        for tile in game.combat.board.tiles:
+            if tile.clickbox.polygonContains(game.cam.relative(vec2f(eg.mouse.screenPos))):
+                tile.sprites[0].tint = vec4f(0.0, 0.0, 0.0, 1.0)
+            else:
+                tile.sprites[0].tint = vec4f(0.5 + sin(rand(2.0) * PI) / 2.0, 0.5 + sin(rand(2.0) * PI) / 2.0, 0.5 + sin(rand(2.0) * PI) / 2.0, 1.0)
             
         eg.beginCamera(game.cam)
         tileSheet.draw(eg.renderer)

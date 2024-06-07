@@ -35,7 +35,6 @@ type
 
 proc newHandle*[T: tuple](insts: GLInstances; initFields: T): Handle =
     result = new Handle
-
     result.instances = insts
     for f in initFields.fields:
         result.fields.add(insts.add(f))
@@ -49,7 +48,6 @@ proc delete*(handle: Handle) =
 
 proc newRectangle*(program: GLProgram): Rectangle =
     result = new Rectangle
-
     result.shape = newShape(program, squareVertices)
     result.instances = newInstances(result.shape, 4)
 
@@ -62,7 +60,6 @@ proc draw*(rect: Rectangle; renderer: GLRenderer) =
 
 proc newInstance*(rect: Rectangle): RectangleInst =
     result = new RectangleInst
-
     result.rect = rect
     result.handle = newHandle(
         result.rect.instances,
@@ -88,7 +85,6 @@ proc `area=`*(inst: RectangleInst; area: Vec4f) =
     
 proc newSpriteSheet*(size: Vec2i; program: GLProgram; bmpStr: string): SpriteSheet =
     result = new SpriteSheet
-
     result.shape = newShape(program, squareVertices)
     result.image = newImage(bmpStr)
     result.instances = newInstances(result.shape, 4)
@@ -120,7 +116,6 @@ proc draw*(sheet: SpriteSheet; renderer: GLRenderer) =
 
 proc newSprite*(sheet: SpriteSheet; center: Vec2i): Sprite =
     result = new Sprite
-
     result.sheet = sheet
     result.center = center
     result.handle = newHandle(
@@ -156,7 +151,6 @@ proc `pos=`*(sprite: var Sprite; pos: Vec3f) =
 
 proc newMonoText*(sheet: SpriteSheet): MonoText =
     result = new MonoText
-
     result.sheet = sheet
     result.instances = newInstances(sheet.shape, 4)
     result.width = 0.0

@@ -117,7 +117,6 @@ proc recalculateDeltas(mouse: var MouseState; eg: YpeeEg) =
 
 proc newCamera2D*(viewMat: Mat4x4f): Camera2D =
     result = new Camera2D
-
     result.baseMat = viewMat
     result.viewMat = viewMat
 
@@ -194,7 +193,6 @@ proc newYpeeEg*(
     fpsCap: int = -1;
 ): YpeeEg =
     result = new YpeeEg
-
     result.running = true
     result.unadjustedScreenSize = screenSize
     result.screenSize = screenSize

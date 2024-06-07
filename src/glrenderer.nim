@@ -141,7 +141,6 @@ proc enableAttributes(program: GLProgram; divisor: GLuint) =
 
 proc newInstances*(shape: GLShape; initLen: int): GLInstances =
     result = new GLInstances
-
     result.data = newSeqOfCap[GLfloat](initLen)
     result.instSize = shape.program.instSize
     result.maxLen = initLen
@@ -208,7 +207,6 @@ proc bufferData(insts: GLInstances) =
 
 proc newImage*(bmpStr: string): GLImage =
     result = new GLImage
-
     let
         sStream = newStringStream(bmpStr)
         rBmp = decodeBMP(sStream)
@@ -239,7 +237,6 @@ proc `<`*(image1, image2: GLImage): bool =
 
 proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
     result = new GLShape
-
     result.nVertices = vertices.len.GLsizei
     result.program = program
     
@@ -300,7 +297,6 @@ proc resize*(frame: GLFrame; size: Vec2i) =
 
 proc newFrame*(size: Vec2i): GLFrame =
     result = new GLFrame
-
     const
         vShaderSrc = staticRead("shaders/ypee/frame.vs")
         fShaderSrc = staticRead("shaders/ypee/frame.fs")

@@ -43,7 +43,7 @@ proc newTile(pos: Vec2f): Tile =
     result.pos = pos
     result.sprites[0] = newSprite(tileSheet)
     result.sprites[0].pos = vec3f(pos * tileSize, 0.0)
-    result.sprites[0].tint = vec4f(0.5 + sin(rand(2.0) * PI) / 2.0, 0.5 + sin(rand(2.0) * PI) / 2.0, 0.5 + sin(rand(2.0) * PI) / 2.0, 1.0)
+    result.sprites[0].tint = vec4f(0.5, 0.5, 0.5, 1.0)
     result.sprites[0].offset = vec2i(1, 0)
     result.sprites[1] = newSprite(tileSheet)
     result.sprites[1].pos = vec3f(pos * tileSize, 1.0)
@@ -59,9 +59,7 @@ proc newBoard(): Board =
         [-1.5, -1.0], [-0.5, -1.0], [ 0.5, -1.0], [ 1.5, -1.0], [ 2.5, -1.0],
         [-1.0, -2.0], [ 0.0, -2.0], [ 1.0, -2.0], [ 2.0, -2.0]
     ]
-
     result = new Board
-
     for pos in positions:
         result.tiles.add(newTile(vec2f(pos[0], pos[1])))
 
@@ -76,11 +74,10 @@ proc setScreenPos(board: Board; screenPos: Vec2f) =
     for tile in board.tiles:
         for i in [0, 1]:
             tile.sprites[i].pos = vec3f(screenPos + tile.pos * tileSize, i.float)
-        tile.clickbox = squareHexagonPoints(screenPos + tile.pos * tileSize, tileScale)
+        tile.clickbox = squareHexagonPoints(screenPos + tile.pos * tileSize - 0.5, tileScale)
 
 proc newCombat(): Combat =
     result = new Combat
-
     result.board = newBoard()
 
 proc newOverworld(): Overworld =
@@ -154,7 +151,7 @@ proc main() =
             if tile.clickbox.polygonContains(game.cam.relative(vec2f(eg.mouse.screenPos))):
                 tile.sprites[0].tint = vec4f(0.0, 0.0, 0.0, 1.0)
             else:
-                tile.sprites[0].tint = vec4f(0.5 + sin(rand(2.0) * PI) / 2.0, 0.5 + sin(rand(2.0) * PI) / 2.0, 0.5 + sin(rand(2.0) * PI) / 2.0, 1.0)
+                tile.sprites[0].tint = vec4f(0.5, 0.5, 0.5, 1.0)
             
         eg.beginCamera(game.cam)
         tileSheet.draw(eg.renderer)

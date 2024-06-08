@@ -3,7 +3,7 @@ import std/sugar
 import glm
 import sdl2
 
-import custom_utils
+import eg_utils
 import glrenderer
 import graphics
 

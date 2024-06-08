@@ -49,7 +49,7 @@ proc delete*(handle: Handle) =
 proc newRectangle*(program: GLProgram): Rectangle =
     result = new Rectangle
     result.shape = newShape(program, squareVertices)
-    result.instances = newInstances(result.shape, 4)
+    result.instances = newInstances(result.shape)
 
 proc delete*(rect: Rectangle) =
     rect.instances.delete()
@@ -87,13 +87,18 @@ proc newSpriteSheet*(size: Vec2i; program: GLProgram; bmpStr: string): SpriteShe
     result = new SpriteSheet
     result.shape = newShape(program, squareVertices)
     result.image = newImage(bmpStr)
-    result.instances = newInstances(result.shape, 4)
+    result.instances = newInstances(result.shape)
     result.size =
         if size.x == 0 or size.y == 0:
             vec2i(result.image.size[0], result.image.size[1])
         else:
             size
     result.width = result.image.size[0] div result.size.x
+
+proc clone*(sheet: SpriteSheet): SpriteSheet =
+    result = new SpriteSheet
+    result[] = sheet[]
+    result.instances = newInstances(result.shape)
 
 proc delete*(sheet: SpriteSheet) =
     sheet.instances.delete()
@@ -152,7 +157,7 @@ proc `pos=`*(sprite: var Sprite; pos: Vec3f) =
 proc newMonoText*(sheet: SpriteSheet): MonoText =
     result = new MonoText
     result.sheet = sheet
-    result.instances = newInstances(sheet.shape, 4)
+    result.instances = newInstances(sheet.shape)
     result.width = 0.0
 
 proc delete*(text: MonoText) =

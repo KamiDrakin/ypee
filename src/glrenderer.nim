@@ -8,7 +8,7 @@ import opengl
 import nimBMP
 import std/streams
 
-import custom_utils
+import eg_utils
 import basic_shapes
 
 export basic_shapes
@@ -139,7 +139,7 @@ proc enableAttributes(program: GLProgram; divisor: GLuint) =
                 glVertexAttribDivisor(aLoc + i, divisor)
             totalSize += aSize
 
-proc newInstances*(shape: GLShape; initLen: int): GLInstances =
+proc newInstances*(shape: GLShape; initLen: int = 1): GLInstances =
     result = new GLInstances
     result.data = newSeqOfCap[GLfloat](initLen)
     result.instSize = shape.program.instSize

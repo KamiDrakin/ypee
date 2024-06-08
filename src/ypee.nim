@@ -4,7 +4,7 @@ import std/sugar
 
 import glm
 
-import custom_utils
+import game_utils
 import ypee_eg
 
 const
@@ -126,6 +126,8 @@ proc main() =
     var fpsText = newMonoText(fontSheet)
     fpsText.content = "0.0"
 
+    var testTimer = newTimer(1.0)
+
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
             fpsText.content = $eg.frameCounter.fps
@@ -171,6 +173,10 @@ proc main() =
         let selectedTile = game.combat.board.tileAt(game.cam.relative(vec2f(eg.mouse.screenPos)))
         if selectedTile != nil:
             selectedTile.sprites[0].tint = vec4f(0.5, 0.5, 0.8, 1.0)
+
+        testTimer.update(eg.delta)
+        if testTimer.tick:
+            game.combat.board.setScreenPos(vec2f(128.0, 108.0 + testTimer.tickCount.float))
             
         eg.beginCamera(game.cam)
         tileSheet.draw(eg.renderer)

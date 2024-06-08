@@ -1,4 +1,6 @@
 import std/random
+import std/algorithm
+import std/sugar
 
 import glm
 
@@ -16,11 +18,14 @@ var
     tileSheet: SpriteSheet
 
 type
+    Clickbox = object
+        center: Vec2f
+        shape: seq[Vec2f]
     Tile = ref object
         sprites: array[2, Sprite]
         pos: Vec2f
         adjTiles: seq[Tile]
-        clickbox: seq[Vec2f]
+        clickbox: Clickbox
     Board = ref object
         screenPos: Vec2f
         tiles: seq[Tile]
@@ -49,7 +54,8 @@ proc newTile(pos: Vec2f): Tile =
     result.sprites[1].pos = vec3f(pos * tileSize, 1.0)
     result.sprites[1].tint = vec4f(1.0)
     result.sprites[1].offset = vec2i(0, 0)
-    result.clickbox = squareHexagonPoints(pos * tileSize, tileScale)
+    result.clickbox.center = (pos + 0.5) * tileSize
+    result.clickbox.shape = squareHexagonPoints(pos * tileSize, tileScale)
 
 proc newBoard(): Board =
     const positions = [
@@ -74,7 +80,20 @@ proc setScreenPos(board: Board; screenPos: Vec2f) =
     for tile in board.tiles:
         for i in [0, 1]:
             tile.sprites[i].pos = vec3f(screenPos + tile.pos * tileSize, i.float)
-        tile.clickbox = squareHexagonPoints(screenPos + tile.pos * tileSize - 0.5, tileScale)
+        tile.clickbox.center = screenPos + (tile.pos + 0.5) * tileSize
+        tile.clickbox.shape = squareHexagonPoints(screenPos + tile.pos * tileSize - 0.5, tileScale)
+
+proc tileAt(board: Board; pt: Vec2f): Tile =
+    let sortedTiles = board.tiles.sorted(
+        (x, y) => cmp(
+            (pt - x.clickbox.center).length2,
+            (pt - y.clickbox.center).length2
+        )
+    )
+    for tile in sortedTiles[0..2]:
+        if tile.clickbox.shape.polygonContains(pt):
+            result = tile
+            break
 
 proc newCombat(): Combat =
     result = new Combat
@@ -148,10 +167,10 @@ proc main() =
         fpsText.pos = vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0)
 
         for tile in game.combat.board.tiles:
-            if tile.clickbox.polygonContains(game.cam.relative(vec2f(eg.mouse.screenPos))):
-                tile.sprites[0].tint = vec4f(0.0, 0.0, 0.0, 1.0)
-            else:
-                tile.sprites[0].tint = vec4f(0.5, 0.5, 0.5, 1.0)
+            tile.sprites[0].tint = vec4f(0.5, 0.7, 0.3, 1.0)
+        let selectedTile = game.combat.board.tileAt(game.cam.relative(vec2f(eg.mouse.screenPos)))
+        if selectedTile != nil:
+            selectedTile.sprites[0].tint = vec4f(0.5, 0.5, 0.8, 1.0)
             
         eg.beginCamera(game.cam)
         tileSheet.draw(eg.renderer)

@@ -3,11 +3,8 @@ import std/sugar
 import glm
 import sdl2
 
-import eg_utils
+import egutils
 import glrenderer
-import graphics
-
-export graphics
 
 type
     ScreenMode* = enum
@@ -190,7 +187,7 @@ proc refreshProjection*(eg: YpeeEg; winSize: Vec2i) =
 proc newYpeeEg*(
     screenSize: Vec2i = defaultScreenSize;
     screenMode: ScreenMode = defaultScreenMode;
-    fpsCap: int = -1;
+    fpsCap: int = -1
 ): YpeeEg =
     result = new YpeeEg
     result.running = true

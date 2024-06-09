@@ -4,18 +4,23 @@ import std/sugar
 
 import glm
 
-import game_utils
-import ypee_eg
+import gameutils
+import ypeeeg
+import graphics
+import ui
 
 const
     cursorBmp = staticRead("textures/cursor.bmp")
     fontBmp = staticRead("textures/font.bmp")
     tileBmp = staticRead("textures/hexa.bmp")
+    cornersBmp = staticRead("textures/corners.bmp")
 
 var
+    rectangle: Rectangle
     cursorSheet: SpriteSheet
     fontSheet: SpriteSheet
     tileSheet: SpriteSheet
+    cornersSheet: SpriteSheet
 
 type
     Clickbox = object
@@ -42,9 +47,7 @@ proc newTile(pos: Vec2f): Tile =
     const
         tileSize = vec2f(30.0, 18.0)
         tileScale = vec2f(30.0, 24.0)
-    
     result = new Tile
-
     result.pos = pos
     result.sprites[0] = newSprite(tileSheet)
     result.sprites[0].pos = vec3f(pos * tileSize, 0.0)
@@ -111,9 +114,11 @@ proc main() =
     game.eg = eg
     game.cam = newCamera2D(mat4f())
 
+    rectangle = newRectangle(eg.defaultProgram)
     cursorSheet = newSpriteSheet(vec2i(0, 0), eg.defaultProgram, cursorBmp)
     fontSheet = newSpriteSheet(vec2i(8, 8), eg.defaultProgram, fontBmp)
     tileSheet = newSpriteSheet(vec2i(32, 24), eg.defaultProgram, tileBmp)
+    cornersSheet = newSpriteSheet(vec2i(8, 8), eg.defaultProgram, cornersBmp)
 
     game.combat = newCombat()
     game.combat.board.setScreenPos(vec2f(128.0, 108.0))
@@ -127,6 +132,10 @@ proc main() =
     fpsText.content = "0.0"
 
     var testTimer = newTimer(1.0)
+
+    var
+        uiRectangle = rectangle.clone()
+        testButton = newButton(uiRectangle, cornersSheet, vec3f(2.0, 2.0, 0.0), vec2f(50.0, 50.0), vec3f(0.6), vec3f(0.3))
 
     while eg.nextFrame():
         if eg.frameCounter.elapsed >= 2.0:
@@ -182,6 +191,8 @@ proc main() =
         tileSheet.draw(eg.renderer)
         eg.layer()
         eg.endCamera()
+        uiRectangle.draw(eg.renderer)
+        cornersSheet.draw(eg.renderer)
         cursorSheet.draw(eg.renderer)
         fpsText.draw(eg.renderer)
         eg.layer()

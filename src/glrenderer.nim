@@ -8,10 +8,10 @@ import opengl
 import nimBMP
 import std/streams
 
-import eg_utils
-import basic_shapes
+import egutils
+import basicshapes
 
-export basic_shapes
+export basicshapes
 
 type
     GLProgram* = ref object
@@ -28,7 +28,7 @@ type
         maxLen: int
     GLImage* = ref object
         texture: GLuint
-        size*: (GLsizei, GLsizei)
+        size*: Vec2i
     GLShape* = ref object
         nVertices: GLsizei
         vao: GLuint
@@ -43,7 +43,7 @@ type
         fbo: GLuint
         rbo: GLuint
         texture: GLuint
-        size: (GLsizei, GLsizei)
+        size: Vec2i
     GLRenderer* = ref object
         usedProgram: GLProgram
         toDraw: seq[GLDrawItem]
@@ -216,7 +216,7 @@ proc newImage*(bmpStr: string): GLImage =
         bmp = convert[string](rBmp, 24)
         data = bmp.data.bmpDataFlip(bmp.width)
     doAssert bmp.width > 0 and bmp.height > 0
-    result.size = (bmp.width.GLsizei, bmp.height.GLsizei)
+    result.size = vec2i(bmp.width.int32, bmp.height.int32)
     glGenTextures(1, result.texture.addr)
     glBindTexture(GL_TEXTURE_2D, result.texture)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT.GLint)
@@ -273,7 +273,6 @@ func drawItemCmp(x, y: GLDrawItem): int =
 
 proc resize*(frame: GLFrame; size: Vec2i) =
     if frame.fbo == 0: return
-    let size = (size.x.GLsizei, size.y.GLsizei)
     frame.size = size
 
     glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo)

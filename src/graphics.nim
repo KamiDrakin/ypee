@@ -16,9 +16,9 @@ type
         handle: Handle
     SpriteSheet* = ref object
         shape: GLShape
-        image: GLImage
+        image*: GLImage
         instances: GLInstances
-        size: Vec2i
+        size*: Vec2i
         width: int32
     Sprite* = ref object
         sheet: SpriteSheet
@@ -51,6 +51,11 @@ proc newRectangle*(program: GLProgram): Rectangle =
     result.shape = newShape(program, squareVertices)
     result.instances = newInstances(result.shape)
 
+proc clone*(rect: Rectangle): Rectangle =
+    result = new Rectangle
+    result[] = rect[]
+    result.instances = newInstances(result.shape)
+
 proc delete*(rect: Rectangle) =
     rect.instances.delete()
     rect.shape.delete()
@@ -77,10 +82,11 @@ proc delete*(inst: RectangleInst) =
 proc `color=`*(inst: RectangleInst; color: Vec3f) =
     inst.handle[2] = vec4f(color, 1.0)
 
-proc `area=`*(inst: RectangleInst; area: Vec4f) =
+proc `area=`*(inst: RectangleInst; area: (Vec4f, float)) =
+    let (area, depth) = area
     inst.handle[3] =
         mat4f()
-            .translate(area.x + area.z / 2.0, area.y + area.w / 2.0, 0.0)
+            .translate(area.x + area.z / 2.0, area.y + area.w / 2.0, depth)
             .scale(area.z, area.w, 1.0)
     
 proc newSpriteSheet*(size: Vec2i; program: GLProgram; bmpStr: string): SpriteSheet =

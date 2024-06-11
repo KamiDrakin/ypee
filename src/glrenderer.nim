@@ -129,7 +129,7 @@ proc enableAttributes(program: GLProgram; divisor: GLuint) =
     for (aLoc, aSize) in attributes:
         let
             aSizeSqrt = sqrt(aSize.float).GLsizei
-            repeat = if aSizeSqrt > 2: aSize div aSizeSqrt else: 0 # works only for even matrices i guess
+            repeat = if aSizeSqrt > 2: (aSize div aSizeSqrt) - 1 else: 0 # works only for even matrices i guess
             aSize: GLsizei = if repeat > 0: aSizeSqrt else: aSize
         for i in countup(0, repeat):
             let i = i.GLuint

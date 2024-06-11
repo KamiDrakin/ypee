@@ -1,13 +1,13 @@
 #version 330 core
 
-layout (location = 0) in vec3 vPos;
-layout (location = 1) in vec3 vColor;
-layout (location = 2) in vec2 vTexCoords;
+in vec3 vPos;
+in vec3 vColor;
+in vec2 vTexCoords;
 
-layout (location = 3) in vec4 iColor;
-layout (location = 4) in vec4 texRect;
-layout (location = 5) in vec4 blendColor;
-layout (location = 6) in mat4 modelMat;
+in vec4 iColor;
+in vec4 texRect;
+in vec4 blendColor;
+in mat4 modelMat;
 
 out vec4 color;
 out vec2 texCoords;

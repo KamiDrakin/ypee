@@ -37,10 +37,8 @@ proc program*(shaders: openArray[Shader]): Program =
     glGetProgramInfoLog(result.GLuint, 1024, nil, infoLog.cstring)
     raise newException(Exception, "failed linking program " & $result.GLuint & "\n" & infoLog)
 
-proc use*(program: Program; p: proc) =
+proc use*(program: Program) =
   glUseProgram(program.GLuint)
-  p()
-  glUseProgram(0)
 
 proc getAttribLocation*(program: Program; name: string): AttribLocation =
   let signedResult = glGetAttribLocation(program.GLuint, name.cstring)
@@ -72,20 +70,19 @@ proc vertexPointer*(
 proc vertexArrays*(n: SomeInteger): seq[VertexArray] =
   result.setLen(n)
   glGenVertexArrays(n.GLsizei, cast[ptr GLuint](result[0].addr))
-
-proc use*(vertexArray: VertexArray; p: proc) =
+  
+proc use*(vertexArray: VertexArray) =
   glBindVertexArray(vertexArray.GLuint)
-  p()
-  glBindVertexArray(0)
 
 proc buffers*(n: SomeInteger): seq[Buffer] =
   result.setLen(n)
   glGenBuffers(n.GLsizei, cast[ptr GLuint](result[0].addr))
 
-proc use*(buffer: Buffer; target: GLenum; p: proc(target: GLenum)) =
+proc use*(buffer: Buffer; target: GLenum) =
   glBindBuffer(target, buffer.GLuint)
-  p(target)
-  glBindBuffer(target, 0)
 
-proc bufferData*[T](target: GLenum; size: SomeInteger; data: T; usage: GLenum) =
-  glBufferData(target, size.GLsizeiptr, cast[pointer](data.addr), usage)
+proc bufferData*[T](target: GLenum; size: SomeInteger; dataPtr: T; usage: GLenum) =
+  glBufferData(target, size.GLsizeiptr, cast[pointer](dataPtr), usage)
+
+proc bufferSubData*[T](target: GLenum; offset, size: SomeInteger; dataPtr: T) =
+  glBufferSubData(target, offset.GLintptr, size.GLsizeiptr, cast[pointer](dataPtr))

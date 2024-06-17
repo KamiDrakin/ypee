@@ -192,9 +192,6 @@ proc delete*(image: GLImage) =
   except:
     echo "Failed to delete texture ", image.texture.id
 
-proc `<`*(image1, image2: GLImage): bool =
-  image1.texture.id < image2.texture.id
-
 proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
   result = new GLShape
   result.nVertices = vertices.len.GLsizei

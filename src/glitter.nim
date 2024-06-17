@@ -1,6 +1,6 @@
 import std/sequtils
 import std/sugar
-import std/macros
+import std/with
 
 import opengl
 
@@ -16,9 +16,14 @@ type
   AttribLocation* = distinct GLuint
   UniformLocation* = distinct GLuint
   VertexArray* = distinct GLuint
-  Buffer* = distinct GLuint
+  Buffer* = object
+    id*: GLuint
+    target: GLenum
+  Texture* =  object
+    id*: GLuint
+    target: GLenum
 
-proc shaderFromSrc*(src: openArray[string]; shaderType: GLenum): Shader =
+proc shader*(src: openArray[string]; shaderType: GLenum): Shader =
   result = glCreateShader(shaderType).Shader
   let shaderTextArr = src.map((x) => x.cstring)
   glShaderSource(result.GLuint, 1, cast[cstringArray](shaderTextArr[0].addr), nil)
@@ -77,14 +82,11 @@ proc `[]`*(attribLoc: AttribLocation; i: SomeInteger): AttribLocation =
 proc enable*(attribLoc: AttribLocation) =
   glEnableVertexAttribArray(attribLoc.GLuint)
 
-## glVertexAttribPointer wrap
-## size isn't in bytes you doofus
 proc vertexPointer*(
   attribLoc: AttribLocation;
   size: 1..4;
   valueType: GLenum;
-  stride: SomeInteger;
-  offset: SomeInteger;
+  stride, offset: SomeInteger;
   transpose: bool = false
 ) =
   glVertexAttribPointer(
@@ -114,8 +116,11 @@ proc assign*[T](
   transpose: bool = false
 ) =
 
-  template uni(p, c: untyped): untyped {.used.} = p(uniformLoc.GLint, count.GLsizei, cast[ptr c](v[0].addr))
-  template uniMat(p, c: untyped): untyped {.used.} = p(uniformLoc.GLint, count.GLsizei, transpose, cast[ptr c](v[0].addr))
+  template uni(p, c: untyped): untyped {.used.} =
+    p(uniformLoc.GLint, count.GLsizei, cast[ptr c](v[0].addr))
+  
+  template uniMat(p, c: untyped): untyped {.used.} =
+    p(uniformLoc.GLint, count.GLsizei, transpose, cast[ptr c](v[0].addr))
 
   # pain
   when uniformType == utVec1f: uni(glUniform1fv, GLfloat)
@@ -158,15 +163,22 @@ proc buffers*(n: SomeInteger): seq[Buffer] =
 proc delete*(buffers: openArray[Buffer]) =
   glDeleteBuffers(buffers.len.GLsizei, cast[ptr GLuint](buffers[0].addr))
 
-proc use*(buffer: Buffer; target: GLenum) =
-  glBindBuffer(target, buffer.GLuint)
+proc use*(buffer: var Buffer; target: GLenum) =
+  buffer.target = target
+  glBindBuffer(target, buffer.id)
 
 proc unbindBuffer*(target: GLenum) =
   glBindBuffer(target, 0)
 
-template use*(buffer: Buffer; target: GLenum; p: untyped): untyped =
+template use*(buffer: var Buffer; target: GLenum; p: untyped): untyped =
   buffer.use(target)
   p
+  unbindBuffer(target)
+
+template useWith*(buffer: var Buffer; target: GLenum; p: untyped): untyped =
+  with buffer:
+    use(target)
+    p
   unbindBuffer(target)
 
 proc bufferData*[T](target: GLenum; size: SomeInteger; data: openArray[T]; usage: GLenum) =
@@ -175,5 +187,111 @@ proc bufferData*[T](target: GLenum; size: SomeInteger; data: openArray[T]; usage
 proc bufferData*(target: GLenum; size: SomeInteger; usage: GLenum) =
   glBufferData(target, size.GLsizeiptr, nil, usage)
 
+proc bufferData*[T](buffer: Buffer; size: SomeInteger; data: openArray[T]; usage: GLenum) =
+  bufferData(buffer.target, size, data, usage)
+
+proc bufferData*(buffer: Buffer; size: SomeInteger; usage: GLenum) =
+  bufferData(buffer.target, size, usage)
+
 proc bufferSubData*[T](target: GLenum; offset, size: SomeInteger; data: openArray[T]) =
   glBufferSubData(target, offset.GLintptr, size.GLsizeiptr, cast[pointer](data[0].addr))
+
+proc bufferSubData*[T](buffer: Buffer; offset, size: SomeInteger; data: openArray[T]) =
+  bufferSubData(buffer.target, offset, size, data)
+
+proc textures*(n: SomeInteger): seq[Texture] =
+  result.setLen(n)
+  glGenTextures(n.GLsizei, cast[ptr GLuint](result[0].addr))
+
+proc delete*(textures: openArray[Texture]) =
+  glDeleteTextures(textures.len.GLsizei, cast[ptr GLuint](textures[0].addr))
+
+proc use*(texture: var Texture; target: GLenum) =
+  texture.target = target
+  glBindTexture(target, texture.id)
+
+proc unbindTexture*(target: GLenum) =
+  glBindTexture(target, 0)
+
+template use*(texture: var Texture; target: GLenum; p: untyped): untyped =
+  texture.use(target)
+  p
+  unbindTexture(target)
+
+template useWith*(texture: var Texture; target: GLenum; p: untyped): untyped =
+  with texture:
+    use(target)
+    p
+  unbindTexture(target)
+
+proc parameter*(target, pname: GLenum; param: SomeInteger) =
+  glTexParameteri(target, pname, param.GLint)
+
+proc parameter*(target, pname: GLenum; param: SomeFloat) =
+  glTexParameterf(target, pname, param.GLfloat)
+
+proc parameter*(texture: Texture; pname: GLenum; param: SomeInteger) =
+  glTexParameteri(texture.target, pname, param.GLint)
+
+proc parameter*(texture: Texture; pname: GLenum; param: SomeFloat) =
+  glTexParameterf(texture.target, pname, param.GLfloat)
+
+proc image2d*[T](
+  target, internalFormat: GLenum;
+  width, height: SomeInteger;
+  format: GLenum;
+  data: openArray[T];
+  level: SomeInteger = 0;
+  valueType: GLenum = GL_UNSIGNED_BYTE
+) =
+  glTexImage2D(
+    target,
+    level.GLint,
+    internalFormat.GLint,
+    width.GLsizei,
+    height.GLsizei,
+    0,
+    format,
+    valueType,
+    cast[pointer](data[0].addr)
+  )
+
+proc image2d*(
+  target, internalFormat: GLenum;
+  width, height: SomeInteger;
+  format: GLenum;
+  level: SomeInteger = 0;
+  valueType: GLenum = GL_UNSIGNED_BYTE
+) =
+  glTexImage2D(
+    target,
+    level.GLint,
+    internalFormat.GLint,
+    width.GLsizei,
+    height.GLsizei,
+    0,
+    format,
+    valueType,
+    nil
+  )
+
+proc image2d*[T](
+  texture: Texture;
+  internalFormat: GLenum;
+  width, height: SomeInteger;
+  format: GLenum;
+  data: openArray[T];
+  level: SomeInteger = 0;
+  valueType: GLenum = GL_UNSIGNED_BYTE
+) =
+  image2d(texture.target, internalFormat, width, height, format, data, level, valueType)
+
+proc image2d*(
+  texture: Texture;
+  internalFormat: GLenum;
+  width, height: SomeInteger;
+  format: GLenum;
+  level: SomeInteger = 0;
+  valueType: GLenum = GL_UNSIGNED_BYTE
+) =
+  image2d(texture.target, internalFormat, width, height, format, level, valueType)

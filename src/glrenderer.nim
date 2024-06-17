@@ -2,11 +2,11 @@ import std/tables
 import std/sets
 import std/algorithm
 import std/sequtils
+import std/streams
 
 import glm
 import opengl
 import nimBMP
-import std/streams
 
 import egutils
 import basicshapes
@@ -28,7 +28,7 @@ type
     buffer: Buffer
     maxLen: int
   GLImage* = ref object
-    texture: GLuint
+    texture: Texture
     size*: Vec2i
   GLShape* = ref object
     nVertices: GLsizei
@@ -43,7 +43,7 @@ type
     shape: GLShape
     fbo: GLuint
     rbo: GLuint
-    texture: GLuint
+    texture: Texture
     size: Vec2i
   GLRenderer* = ref object
     usedProgram: GLProgram
@@ -55,8 +55,8 @@ type
 proc newProgram*(vShaderSrc, fShaderSrc: string): GLProgram =
   result = new GLProgram
   result.id = program([
-    shaderFromSrc([vShaderSrc], GL_VERTEX_SHADER),
-    shaderFromSrc([fShaderSrc], GL_FRAGMENT_SHADER)
+    shader([vShaderSrc], GL_VERTEX_SHADER),
+    shader([fShaderSrc], GL_FRAGMENT_SHADER)
   ])
 
 proc delete*(program: GLProgram) =
@@ -67,10 +67,10 @@ proc delete*(program: GLProgram) =
 
 proc setAttributes*(program: GLProgram; vertAttribs, instAttribs: seq[(string, int)]) =
   for (aName, aSize) in vertAttribs:
-      let
-        aSize = aSize.GLsizei
-        aLoc = program.id.getAttribLocation(aName)
-      program.vertAttributes.add((aLoc, aSize)) 
+    let
+      aSize = aSize.GLsizei
+      aLoc = program.id.getAttribLocation(aName)
+    program.vertAttributes.add((aLoc, aSize)) 
 
   program.instSize = 0
   for (aName, aSize) in instAttribs:
@@ -115,14 +115,14 @@ proc newInstances*(shape: GLShape; initLen: int = 1): GLInstances =
   
   shape.vao.use():
     result.buffer.use(GL_ARRAY_BUFFER):
-      bufferData(GL_ARRAY_BUFFER, result.maxLen * sizeof(GLfloat), GL_DYNAMIC_DRAW)
+      result.buffer.bufferData(result.maxLen * sizeof(GLfloat), GL_DYNAMIC_DRAW)
       shape.program.enableAttributes(1)
 
 proc delete*(insts: GLinstances) =
   try:
     [insts.buffer].delete()
   except:
-    echo "Failed to delete instance buffer ", insts.buffer.GLuint
+    echo "Failed to delete instance buffer ", insts.buffer.id
 
 proc len(insts: GLInstances): int =
   insts.data.len div insts.instSize
@@ -164,7 +164,7 @@ proc bufferData(insts: GLInstances) =
   insts.buffer.use(GL_ARRAY_BUFFER):
     if insts.data.len > insts.maxLen:
       insts.resize()
-    bufferSubData(GL_ARRAY_BUFFER, 0, insts.data.len * sizeof(GLfloat), insts.data)
+    insts.buffer.bufferSubData(0, insts.data.len * sizeof(GLfloat), insts.data)
 
 proc newImage*(bmpStr: string): GLImage =
   result = new GLImage
@@ -178,23 +178,22 @@ proc newImage*(bmpStr: string): GLImage =
     data = bmp.data.bmpDataFlip(bmp.width)
   doAssert bmp.width > 0 and bmp.height > 0
   result.size = vec2i(bmp.width.int32, bmp.height.int32)
-  glGenTextures(1, result.texture.addr)
-  glBindTexture(GL_TEXTURE_2D, result.texture)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT.GLint)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT.GLint)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST.GLint)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.GLint)
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, result.size[0], result.size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, data.cstring)
-  glBindTexture(GL_TEXTURE_2D, 0)
+  result.texture = textures(1)[0]
+  result.texture.useWith(GL_TEXTURE_2D):
+    image2d(GL_RGB, result.size[0], result.size[1], GL_RGB, data)
+    parameter(GL_TEXTURE_WRAP_S, GL_REPEAT)
+    parameter(GL_TEXTURE_WRAP_T, GL_REPEAT)
+    parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+    parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 
 proc delete*(image: GLImage) =
   try:
-    glDeleteTextures(1, image.texture.addr)
+    [image.texture].delete()
   except:
-    echo "Failed to delete texture ", image.texture
+    echo "Failed to delete texture ", image.texture.id
 
 proc `<`*(image1, image2: GLImage): bool =
-  image1.texture < image2.texture
+  image1.texture.id < image2.texture.id
 
 proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
   result = new GLShape
@@ -205,14 +204,14 @@ proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
   result.vbo = buffers(1)[0]
   result.vao.use():
     result.vbo.use(GL_ARRAY_BUFFER):
-      bufferData(GL_ARRAY_BUFFER, vertices.len * sizeof(GLVertex), vertices, GL_STATIC_DRAW)
+      result.vbo.bufferData(vertices.len * sizeof(GLVertex), vertices, GL_STATIC_DRAW)
       program.enableAttributes(0)
 
 proc delete*(shape: GLShape) =
   try:
     [shape.vbo].delete()
   except:
-    echo "Failed to delete VBO ", shape.vbo.GLuint
+    echo "Failed to delete VBO ", shape.vbo.id
   try:
     [shape.vao].delete()
   except:
@@ -231,14 +230,14 @@ proc resize*(frame: GLFrame; size: Vec2i) =
 
   glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo)
 
-  glBindTexture(GL_TEXTURE_2D, frame.texture)
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB.GLint, size[0], size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, nil)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST.GLint)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.GLint)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE.GLint) # temporary "fix"
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE.GLint)
-  glBindTexture(GL_TEXTURE_2D, 0)
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frame.texture, 0)
+  frame.texture.useWith(GL_TEXTURE_2D):
+    image2d(GL_RGB, size[0], size[1], GL_RGB)
+    parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+    parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+    parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE) # temporary "fix"
+    parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+  
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frame.texture.id, 0)
 
   glBindRenderbuffer(GL_RENDERBUFFER, frame.rbo)
   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, size[0], size[1])  
@@ -260,14 +259,14 @@ proc newFrame*(size: Vec2i): GLFrame =
   result.shape = newShape(program, frameVertices)
 
   glGenFramebuffers(1, result.fbo.addr)
-  glGenTextures(1, result.texture.addr)
+  result.texture = textures(1)[0]
   glGenRenderbuffers(1, result.rbo.addr)
 
   result.resize(size)
 
 proc delete*(frame: GLFrame) =
   try:
-    glDeleteTextures(1, frame.texture.addr)
+    [frame.texture].delete()
   except:
     echo "Failed to delete framebuffer texture"
   try:
@@ -303,7 +302,7 @@ proc use(renderer: GLRenderer; program: GLProgram) =
 proc use(renderer: GLRenderer; image: GLImage) =
   var texSize: Vec2f
   if image != nil:
-    glBindTexture(GL_TEXTURE_2D, image.texture)
+    image.texture.use(GL_TEXTURE_2D)
     texSize = vec2f(image.size[0].GLfloat, image.size[1].GLfloat)
   else:
     texSize = vec2f(0.0)
@@ -382,16 +381,16 @@ proc renderFrame*(renderer: GLRenderer; windowSize: Vec2i; letterbox: bool) =
   glClear(GL_COLOR_BUFFER_BIT)
   glDisable(GL_DEPTH_TEST)
   renderer.use(renderer.frame.shape)
-  glBindTexture(GL_TEXTURE_2D, renderer.frame.texture)
-  if letterbox:
-    let
-      xRatio = renderer.frame.size[0].GLfloat / windowSize[0].GLfloat
-      yRatio = renderer.frame.size[1].GLfloat / windowSize[1].GLfloat
-      higherRatio = max(xRatio, yRatio)
-      scale = vec2f(xRatio, yRatio) / higherRatio
-    renderer.setUniform("frameScale", scale)
-  else:
-    renderer.setUniform("frameScale", vec2f(1.0))
-  renderer.applyUniforms()
-  glDrawArrays(GL_TRIANGLES, 0, renderer.frame.shape.nVertices)
+  renderer.frame.texture.use(GL_TEXTURE_2D):
+    if letterbox:
+      let
+        xRatio = renderer.frame.size[0].GLfloat / windowSize[0].GLfloat
+        yRatio = renderer.frame.size[1].GLfloat / windowSize[1].GLfloat
+        higherRatio = max(xRatio, yRatio)
+        scale = vec2f(xRatio, yRatio) / higherRatio
+      renderer.setUniform("frameScale", scale)
+    else:
+      renderer.setUniform("frameScale", vec2f(1.0))
+    renderer.applyUniforms()
+    glDrawArrays(GL_TRIANGLES, 0, renderer.frame.shape.nVertices)
   renderer.usedProgram = nil

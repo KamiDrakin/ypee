@@ -10,29 +10,30 @@ import std/streams
 
 import egutils
 import basicshapes
+import glitter
 
 export basicshapes
 
 type
   GLProgram* = ref object
-    id: GLuint
-    vertAttributes: seq[(GLuint, GLsizei)]
-    instAttributes: seq[(GLuint, GLsizei)]
+    id: Program
+    vertAttributes: seq[(AttribLocation, GLsizei)]
+    instAttributes: seq[(AttribLocation, GLsizei)]
     instSize: GLsizei
-    uniforms: Table[string, (GLint, GLsizei)]
+    uniforms: Table[string, (UniformLocation, GLsizei)]
   GLInstances* = ref object
     data: seq[GLfloat]
     offsets: Strider
     instSize: GLsizei
-    buffer: GLuint
+    buffer: Buffer
     maxLen: int
   GLImage* = ref object
     texture: GLuint
     size*: Vec2i
   GLShape* = ref object
     nVertices: GLsizei
-    vao: GLuint
-    vbo: GLuint
+    vao: VertexArray
+    vbo: Buffer
     program*: GLProgram
   GLDrawItem = object
     shape: GLShape
@@ -52,71 +53,37 @@ type
     frame*: GLFrame
 
 proc newProgram*(vShaderSrc, fShaderSrc: string): GLProgram =
-
-  proc errorCheck(shader: GLuint) =
-    var
-      success: bool
-      infoLog = newString(1024)
-    glGetShaderiv(shader, GL_COMPILE_STATUS, cast[ptr GLint](success.addr))
-    if success: return
-    glGetShaderInfoLog(shader, 1024, nil, infoLog.cstring)
-    echo infoLog.cstring
-    quit()
-
   result = new GLProgram
-
-  let
-    vShader = glCreateShader(GL_VERTEX_SHADER)
-    vShaderTextArr = [vShaderSrc.cstring]
-  glShaderSource(vShader, 1, cast[cstringArray](vShaderTextArr.addr), nil)
-  glCompileShader(vShader)
-  errorCheck(vShader)
-
-  let
-    fShader = glCreateShader(GL_FRAGMENT_SHADER)
-    fShaderTextArr = [fShaderSrc.cstring]
-  glShaderSource(fShader, 1, cast[cstringArray](fShaderTextArr.addr), nil)
-  glCompileShader(fShader)
-  errorCheck(fShader)
-
-  var success: bool
-  result.id = glCreateProgram()
-  glAttachShader(result.id, vShader)
-  glAttachShader(result.id, fShader)
-  glLinkProgram(result.id)
-  glGetProgramiv(result.id, GL_LINK_STATUS, cast[ptr GLint](success.addr))
-  doAssert success
-
-  glDeleteShader(vShader)
-  glDeleteShader(fShader)
+  result.id = program([
+    shaderFromSrc([vShaderSrc], GL_VERTEX_SHADER),
+    shaderFromSrc([fShaderSrc], GL_FRAGMENT_SHADER)
+  ])
 
 proc delete*(program: GLProgram) =
   try:
-    glDeleteProgram(program.id)
+    program.id.delete()
   except:
-    echo "Failed to delete program ", program.id
+    echo "Failed to delete program ", program.id.GLuint
 
 proc setAttributes*(program: GLProgram; vertAttribs, instAttribs: seq[(string, int)]) =
   for (aName, aSize) in vertAttribs:
       let
         aSize = aSize.GLsizei
-        aLoc = glGetAttribLocation(program.id, aName.cstring)
-      doAssert aLoc >= 0
-      program.vertAttributes.add((aLoc.GLuint, aSize)) 
+        aLoc = program.id.getAttribLocation(aName)
+      program.vertAttributes.add((aLoc, aSize)) 
 
   program.instSize = 0
   for (aName, aSize) in instAttribs:
     let
       aSize = aSize.GLsizei
-      aLoc = glGetAttribLocation(program.id, aName.cstring)
-    doAssert aLoc >= 0
-    program.instAttributes.add((aLoc.GLuint, aSize))
+      aLoc = program.id.getAttribLocation(aName)
+    program.instAttributes.add((aLoc, aSize))
     program.instSize += aSize
 
 proc setUniforms*(program: GLProgram; uniforms: seq[(string, int)]) =
   for (uName, uSize) in uniforms:
     let
-      uLoc = glGetUniformLocation(program.id, uName.cstring)
+      uLoc = program.id.getUniformLocation(uName)
     program.uniforms[uName] = (uLoc, uSize.GLsizei)
 
 proc enableAttributes(program: GLProgram; divisor: GLuint) =
@@ -128,15 +95,14 @@ proc enableAttributes(program: GLProgram; divisor: GLuint) =
     stride += aSize
   for (aLoc, aSize) in attributes:
     let
-      aSizeSqrt = sqrt(aSize.float).GLsizei
+      aSizeSqrt = sqrt(aSize.float).int
       repeat = if aSizeSqrt > 2: (aSize div aSizeSqrt) - 1 else: 0 # works only for even matrices i guess
-      aSize: GLsizei = if repeat > 0: aSizeSqrt else: aSize
+      aSize = if repeat > 0: aSizeSqrt else: aSize
     for i in countup(0, repeat):
-      let i = i.GLuint
-      glEnableVertexAttribArray(aLoc + i)
-      glVertexAttribPointer(aLoc + i, aSize, cGL_FLOAT, false, (sizeof(GLFloat) * stride).GLsizei, cast[pointer](sizeof(GLfloat) * totalSize))
+      aLoc[i].enable()
+      aLoc[i].vertexPointer(aSize, cGL_FLOAT, sizeof(GLFloat) * stride, sizeof(GLfloat) * totalSize)
       if divisor > 0:
-        glVertexAttribDivisor(aLoc + i, divisor)
+        aLoc[i].vertexDivisor(divisor)
       totalSize += aSize
 
 proc newInstances*(shape: GLShape; initLen: int = 1): GLInstances =
@@ -145,22 +111,18 @@ proc newInstances*(shape: GLShape; initLen: int = 1): GLInstances =
   result.instSize = shape.program.instSize
   result.maxLen = initLen
 
-  glGenBuffers(1, result.buffer.addr)
+  result.buffer = buffers(1)[0]
   
-  glBindVertexArray(shape.vao)
-  glBindBuffer(GL_ARRAY_BUFFER, result.buffer)
-  
-  glBufferData(GL_ARRAY_BUFFER, (result.maxLen * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
-  shape.program.enableAttributes(1)
-
-  glBindBuffer(GL_ARRAY_BUFFER, 0)
-  glBindVertexArray(0)
+  shape.vao.use():
+    result.buffer.use(GL_ARRAY_BUFFER):
+      bufferData(GL_ARRAY_BUFFER, result.maxLen * sizeof(GLfloat), GL_DYNAMIC_DRAW)
+      shape.program.enableAttributes(1)
 
 proc delete*(insts: GLinstances) =
   try:
-    glDeleteBuffers(1, insts.buffer.addr)
+    [insts.buffer].delete()
   except:
-    echo "Failed to delete instance buffer ", insts.buffer
+    echo "Failed to delete instance buffer ", insts.buffer.GLuint
 
 proc len(insts: GLInstances): int =
   insts.data.len div insts.instSize
@@ -196,14 +158,13 @@ proc clear*(insts: GLInstances) =
 proc resize(insts: GLInstances) =
   while insts.data.len > insts.maxLen:
     insts.maxLen *= 2
-  glBufferData(GL_ARRAY_BUFFER, (insts.maxLen * sizeof(GLfloat)).GLsizeiptr, nil, GL_DYNAMIC_DRAW)
+  bufferData(GL_ARRAY_BUFFER, insts.maxLen * sizeof(GLfloat), GL_DYNAMIC_DRAW)
 
 proc bufferData(insts: GLInstances) =
-  glBindBuffer(GL_ARRAY_BUFFER, insts.buffer)
-  if insts.data.len > insts.maxLen:
-    insts.resize()
-  glBufferSubData(GL_ARRAY_BUFFER, 0, (insts.data.len * sizeof(GLfloat)).GLsizeiptr, insts.data[0].addr)
-  glBindBuffer(GL_ARRAY_BUFFER, 0)
+  insts.buffer.use(GL_ARRAY_BUFFER):
+    if insts.data.len > insts.maxLen:
+      insts.resize()
+    bufferSubData(GL_ARRAY_BUFFER, 0, insts.data.len * sizeof(GLfloat), insts.data)
 
 proc newImage*(bmpStr: string): GLImage =
   result = new GLImage
@@ -240,29 +201,22 @@ proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
   result.nVertices = vertices.len.GLsizei
   result.program = program
   
-  glGenVertexArrays(1, result.vao.addr)
-
-  glGenBuffers(1, result.vbo.addr)
-
-  glBindVertexArray(result.vao)
-  glBindBuffer(GL_ARRAY_BUFFER, result.vbo)
-  
-  glBufferData(GL_ARRAY_BUFFER, (vertices.len * sizeof(GLVertex)).GLsizeiptr, vertices[0].addr, GL_STATIC_DRAW)
-
-  program.enableAttributes(0)
-
-  glBindBuffer(GL_ARRAY_BUFFER, 0)
-  glBindVertexArray(0)
+  result.vao = vertexArrays(1)[0]
+  result.vbo = buffers(1)[0]
+  result.vao.use():
+    result.vbo.use(GL_ARRAY_BUFFER):
+      bufferData(GL_ARRAY_BUFFER, vertices.len * sizeof(GLVertex), vertices, GL_STATIC_DRAW)
+      program.enableAttributes(0)
 
 proc delete*(shape: GLShape) =
   try:
-    glDeleteBuffers(1, shape.vbo.addr)
+    [shape.vbo].delete()
   except:
-    echo "Failed to delete VBO ", shape.vbo
+    echo "Failed to delete VBO ", shape.vbo.GLuint
   try:
-    glDeleteVertexArrays(1, shape.vao.addr)
+    [shape.vao].delete()
   except:
-    echo "Failed to delete VAO ", shape.vao
+    echo "Failed to delete VAO ", shape.vao.GLuint
 
 func drawItemCmp(x, y: GLDrawItem): int =
   let shapeCmp = cmp(x.shape, y.shape)
@@ -297,8 +251,8 @@ proc resize*(frame: GLFrame; size: Vec2i) =
 proc newFrame*(size: Vec2i): GLFrame =
   result = new GLFrame
   const
-      vShaderSrc = staticRead("shaders/ypee/frame.vs")
-      fShaderSrc = staticRead("shaders/ypee/frame.fs")
+    vShaderSrc = staticRead("shaders/ypee/frame.vs")
+    fShaderSrc = staticRead("shaders/ypee/frame.fs")
   var program: GLProgram
   program = newProgram(vShaderSrc, fShaderSrc)
   program.setAttributes(@[("vPos", 3), ("vColor", 3), ("vTexCoords", 2)], @[])
@@ -313,13 +267,13 @@ proc newFrame*(size: Vec2i): GLFrame =
 
 proc delete*(frame: GLFrame) =
   try:
-      glDeleteTextures(1, frame.texture.addr)
+    glDeleteTextures(1, frame.texture.addr)
   except:
-      echo "Failed to delete framebuffer texture"
+    echo "Failed to delete framebuffer texture"
   try:
-      glDeleteFramebuffers(1, frame.fbo.addr)
+    glDeleteFramebuffers(1, frame.fbo.addr)
   except:
-      echo "Failed to delete framebuffer"
+    echo "Failed to delete framebuffer"
   frame.shape.delete()
   frame.shape.program.delete()
 
@@ -337,14 +291,14 @@ proc delete*(renderer: GLRenderer) =
 proc setUniform*[T](renderer: GLRenderer; name: string; val: T) =
   const size = sizeof(T) div sizeof(GLfloat)
   let
-      valFloats = cast[array[size, GLfloat]](val)
-      valSeq = valFLoats.toSeq
+    valFloats = cast[array[size, GLfloat]](val)
+    valSeq = valFLoats.toSeq
   renderer.uniformVals[name] = valSeq
 
 proc use(renderer: GLRenderer; program: GLProgram) =
   if renderer.usedProgram != nil and program == renderer.usedProgram: return
   renderer.usedProgram = program
-  glUseProgram(program.id)
+  program.id.use()
     
 proc use(renderer: GLRenderer; image: GLImage) =
   var texSize: Vec2f
@@ -357,18 +311,18 @@ proc use(renderer: GLRenderer; image: GLImage) =
 
 proc use(renderer: GLRenderer; shape: GLShape) =
   renderer.use(shape.program)
-  glBindVertexArray(shape.vao)
+  shape.vao.use()
 
 proc applyUniforms(renderer: GLRenderer) =
   let uniforms = renderer.usedProgram[].uniforms
   for k, (uLoc, uSize) in uniforms:
-    let valPtr = renderer.uniformVals[k][0].addr
+    let val = renderer.uniformVals[k]
     case uSize
-      of 1: glUniform1fv(uLoc, 1.GLsizei, valPtr)
-      of 2: glUniform2fv(uLoc, 1.GLsizei, valPtr)
-      of 3: glUniform3fv(uLoc, 1.GLsizei, valPtr)
-      of 4: glUniform4fv(uLoc, 1.GLsizei, valPtr)
-      of 16: glUniformMatrix4fv(uLoc, 1.GLsizei, false, valPtr)
+      of 1: uLoc.assign(utVec1f, val)
+      of 2: uLoc.assign(utVec2f, val)
+      of 3: uLoc.assign(utVec3f, val)
+      of 4: uLoc.assign(utVec4f, val)
+      of 16: uLoc.assign(utMat4, val)
       else: discard
 
 proc draw*(renderer: GLRenderer; shape: GLShape; image: GLImage; insts: GLInstances) =

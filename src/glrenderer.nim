@@ -41,8 +41,8 @@ type
     instances: GLInstances
   GLFrame = ref object
     shape: GLShape
-    fbo: GLuint
-    rbo: GLuint
+    fbo: Framebuffer
+    rbo: Renderbuffer
     texture: Texture
     size: Vec2i
   GLRenderer* = ref object
@@ -114,7 +114,7 @@ proc newInstances*(shape: GLShape; initLen: int = 1): GLInstances =
   result.buffer = buffers(1)[0]
   
   shape.vao.use():
-    result.buffer.use(GL_ARRAY_BUFFER):
+    result.buffer.use(btArray):
       result.buffer.bufferData(result.maxLen * sizeof(GLfloat), GL_DYNAMIC_DRAW)
       shape.program.enableAttributes(1)
 
@@ -158,10 +158,10 @@ proc clear*(insts: GLInstances) =
 proc resize(insts: GLInstances) =
   while insts.data.len > insts.maxLen:
     insts.maxLen *= 2
-  bufferData(GL_ARRAY_BUFFER, insts.maxLen * sizeof(GLfloat), GL_DYNAMIC_DRAW)
+  bufferData(btArray, insts.maxLen * sizeof(GLfloat), GL_DYNAMIC_DRAW)
 
 proc bufferData(insts: GLInstances) =
-  insts.buffer.use(GL_ARRAY_BUFFER):
+  insts.buffer.use(btArray):
     if insts.data.len > insts.maxLen:
       insts.resize()
     insts.buffer.bufferSubData(0, insts.data.len * sizeof(GLfloat), insts.data)
@@ -179,8 +179,8 @@ proc newImage*(bmpStr: string): GLImage =
   doAssert bmp.width > 0 and bmp.height > 0
   result.size = vec2i(bmp.width.int32, bmp.height.int32)
   result.texture = textures(1)[0]
-  result.texture.useWith(GL_TEXTURE_2D):
-    image2d(GL_RGB, result.size[0], result.size[1], GL_RGB, data)
+  result.texture.useWith(tt2D):
+    image2D(GL_RGB, result.size[0], result.size[1], GL_RGB, data)
     parameter(GL_TEXTURE_WRAP_S, GL_REPEAT)
     parameter(GL_TEXTURE_WRAP_T, GL_REPEAT)
     parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST)
@@ -200,7 +200,7 @@ proc newShape*(program: GLProgram; vertices: seq[GLVertex]): GLShape =
   result.vao = vertexArrays(1)[0]
   result.vbo = buffers(1)[0]
   result.vao.use():
-    result.vbo.use(GL_ARRAY_BUFFER):
+    result.vbo.use(btArray):
       result.vbo.bufferData(vertices.len * sizeof(GLVertex), vertices, GL_STATIC_DRAW)
       program.enableAttributes(0)
 
@@ -222,27 +222,24 @@ func drawItemCmp(x, y: GLDrawItem): int =
     cmp(x.image, y.image)
 
 proc resize*(frame: GLFrame; size: Vec2i) =
-  if frame.fbo == 0: return
+  if frame.fbo.id == 0: return
   frame.size = size
 
-  glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo)
+  frame.fbo.use(ftBuffer):
+    frame.texture.useWith(tt2D):
+      image2D(GL_RGB, size[0], size[1], GL_RGB)
+      parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+      parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+      parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE) # temporary "fix"
+      parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+    
+    frame.fbo.texture2D(GL_COLOR_ATTACHMENT0, tt2D, frame.texture)
 
-  frame.texture.useWith(GL_TEXTURE_2D):
-    image2d(GL_RGB, size[0], size[1], GL_RGB)
-    parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-    parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-    parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE) # temporary "fix"
-    parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-  
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frame.texture.id, 0)
+    frame.rbo.use():
+      renderbufferStorage(GL_DEPTH24_STENCIL8, size[0], size[1])
+    frame.fbo.renderbuffer(GL_DEPTH_STENCIL_ATTACHMENT, frame.rbo)
 
-  glBindRenderbuffer(GL_RENDERBUFFER, frame.rbo)
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, size[0], size[1])  
-  glBindRenderbuffer(GL_RENDERBUFFER, 0)
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, frame.rbo)
-
-  doAssert glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
-  glBindFramebuffer(GL_FRAMEBUFFER, 0)
+    doAssert glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
 
 proc newFrame*(size: Vec2i): GLFrame =
   result = new GLFrame
@@ -255,9 +252,9 @@ proc newFrame*(size: Vec2i): GLFrame =
   program.setUniforms(@[("frameScale", 2)])
   result.shape = newShape(program, frameVertices)
 
-  glGenFramebuffers(1, result.fbo.addr)
+  result.fbo = framebuffers(1)[0]
   result.texture = textures(1)[0]
-  glGenRenderbuffers(1, result.rbo.addr)
+  result.rbo = renderbuffers(1)[0]
 
   result.resize(size)
 
@@ -267,7 +264,7 @@ proc delete*(frame: GLFrame) =
   except:
     echo "Failed to delete framebuffer texture"
   try:
-    glDeleteFramebuffers(1, frame.fbo.addr)
+    [frame.fbo].delete()
   except:
     echo "Failed to delete framebuffer"
   frame.shape.delete()
@@ -299,11 +296,11 @@ proc use(renderer: GLRenderer; program: GLProgram) =
 proc use(renderer: GLRenderer; image: GLImage) =
   var texSize: Vec2f
   if image != nil:
-    image.texture.use(GL_TEXTURE_2D)
+    image.texture.use(tt2D)
     texSize = vec2f(image.size[0].GLfloat, image.size[1].GLfloat)
   else:
     texSize = vec2f(0.0)
-  renderer.setUniform("texSize", cast[ptr GLfloat](texSize))
+  renderer.setUniform("texSize", texSize)
 
 proc use(renderer: GLRenderer; shape: GLShape) =
   renderer.use(shape.program)
@@ -359,18 +356,16 @@ proc layer*(renderer: GLRenderer; bufferSize: Vec2i) =
   renderer.layer((bufferSize.x.GLsizei, bufferSize.y.GLsizei))
 
 proc layerFramed*(renderer: GLRenderer) =
-  glBindFramebuffer(GL_FRAMEBUFFER, renderer.frame.fbo)
-  renderer.layer(renderer.frame.size)
-  glBindFramebuffer(GL_FRAMEBUFFER, 0)
+  renderer.frame.fbo.use(ftBuffer):
+    renderer.layer(renderer.frame.size)
 
 proc clear*(renderer: GLRenderer) =
   glClearColor(renderer.clearColor[0], renderer.clearColor[1], renderer.clearColor[2], 1.0)
   glClear(GL_COLOR_BUFFER_BIT)
 
 proc clearFrame*(renderer: GLRenderer) =
-  glBindFramebuffer(GL_FRAMEBUFFER, renderer.frame.fbo)
-  renderer.clear()
-  glBindFramebuffer(GL_FRAMEBUFFER, 0)
+  renderer.frame.fbo.use(ftBuffer):
+    renderer.clear()
 
 proc renderFrame*(renderer: GLRenderer; windowSize: Vec2i; letterbox: bool) =
   glViewport(0, 0, windowSize.x, windowSize.y)
@@ -378,7 +373,7 @@ proc renderFrame*(renderer: GLRenderer; windowSize: Vec2i; letterbox: bool) =
   glClear(GL_COLOR_BUFFER_BIT)
   glDisable(GL_DEPTH_TEST)
   renderer.use(renderer.frame.shape)
-  renderer.frame.texture.use(GL_TEXTURE_2D):
+  renderer.frame.texture.use(tt2D):
     if letterbox:
       let
         xRatio = renderer.frame.size[0].GLfloat / windowSize[0].GLfloat

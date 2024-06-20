@@ -27,7 +27,6 @@ type
     pos: Vec3f
   MonoText* = ref object
     sheet: SpriteSheet
-    instances: GLInstances
     handles: seq[Handle]
     pos: Vec3f
     str: string
@@ -163,24 +162,25 @@ proc `pos=`*(sprite: var Sprite; pos: Vec3f) =
 proc newMonoText*(sheet: SpriteSheet): MonoText =
   result = new MonoText
   result.sheet = sheet
-  result.instances = newInstances(sheet.shape)
+  #result.handles = newHandle(sheet.shape)
   result.width = 0.0
 
 proc delete*(text: MonoText) =
-  text.instances.delete()
-  text.sheet.delete()
+  for handle in text.handles:
+    handle.delete()
 
 proc `content=`*(text: MonoText; str: string) =
   if str != text.str:
     text.str = str
     text.width = text.sheet.size[0].float * str.high.float
-    text.instances.clear()
+    for handle in text.handles:
+      handle.delete()
     text.handles.setLen(0)
     for i, c in text.str:
       let asc = c.int32 - 32
       text.handles.add(
         newHandle(
-          text.instances,
+          text.sheet.instances,
           (
             vec4f(1.0),
             text.sheet.at(vec2i(asc mod text.sheet.width, asc div text.sheet.width)),
@@ -200,5 +200,5 @@ proc `pos=`*(text: MonoText; pos: Vec3f) =
         .translate(text.pos + vec3f(text.sheet.size[0].float * i.float, 0.0, 0.0))
         .scale(text.sheet.size[0].float, text.sheet.size[1].float, 0.0)
 
-proc draw*(text: MonoText; renderer: GLRenderer) =
-  renderer.draw(text.sheet.shape, text.sheet.image, text.instances)
+#proc draw*(text: MonoText; renderer: GLRenderer) =
+#  renderer.draw(text.sheet.shape, text.sheet.image, text.instances)

@@ -138,7 +138,7 @@ proc vertexDivisor*(attribLoc: AttribLocation; divisor: SomeInteger) =
 
 proc assign*[T](
   uniformLoc: UniformLocation;
-  uniformType: static(UniformType);
+  uniformType: static UniformType;
   v: openArray[T];
   count: SomeInteger = 1;
   transpose: bool = false

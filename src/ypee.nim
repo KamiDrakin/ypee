@@ -13,14 +13,12 @@ const
   cursorBmp = staticRead("textures/cursor.bmp")
   fontBmp = staticRead("textures/font.bmp")
   tileBmp = staticRead("textures/hexa.bmp")
-  cornersBmp = staticRead("textures/corners.bmp")
 
 var
   rectangle: Rectangle
   cursorSheet: SpriteSheet
   fontSheet: SpriteSheet
   tileSheet: SpriteSheet
-  cornersSheet: SpriteSheet
 
 type
   Clickbox = object
@@ -118,7 +116,6 @@ proc main() =
   cursorSheet = newSpriteSheet(vec2i(0, 0), eg.defaultProgram, cursorBmp)
   fontSheet = newSpriteSheet(vec2i(8, 8), eg.defaultProgram, fontBmp)
   tileSheet = newSpriteSheet(vec2i(32, 24), eg.defaultProgram, tileBmp)
-  cornersSheet = newSpriteSheet(vec2i(8, 8), eg.defaultProgram, cornersBmp)
 
   game.combat = newCombat()
   game.combat.board.setScreenPos(vec2f(128.0, 108.0))
@@ -137,11 +134,11 @@ proc main() =
     uiRectangle = rectangle.clone()
     testButton = newButton(
       uiRectangle,
-      cornersSheet,
-      vec3f(2.0, 2.0, 0.0),
+      vec3f(1.0, 1.0, 0.0),
       vec2f(50.0, 50.0),
-      vec3f(0.6), vec3f(0.3)
+      vec3f(0.3), vec3f(0.6)
     )
+  testButton.setLabel(fontSheet, "meow")
 
   while eg.nextFrame():
     if eg.frameCounter.elapsed >= 2.0:
@@ -198,9 +195,8 @@ proc main() =
     eg.layer()
     eg.endCamera()
     uiRectangle.draw(eg.renderer)
-    cornersSheet.draw(eg.renderer)
     cursorSheet.draw(eg.renderer)
-    fpsText.draw(eg.renderer)
+    fontSheet.draw(eg.renderer)
     eg.layer()
 
   tileSheet.delete()

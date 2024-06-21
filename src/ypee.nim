@@ -132,13 +132,19 @@ proc main() =
 
   var
     uiRectangle = rectangle.clone()
-    testButton = newButton(
+    grid = newGrid(eg, 0.0, vec2i(6, 14))
+    testButton = grid.addButton(
       uiRectangle,
-      vec3f(1.0, 1.0, 0.0),
-      vec2f(50.0, 50.0),
+      fontSheet,
+      vec2i(2, 1),
+      vec2i(2, 2),
       vec3f(0.3), vec3f(0.6)
     )
-  testButton.setLabel(fontSheet, "meow")
+  var testCounter = 0
+  testButton.label = "Click me"
+  testButton.onClick do ():
+    testCounter += 1
+    testButton.label = $testCounter & (if testCounter > 1: " clicks" else: " click")
 
   while eg.nextFrame():
     if eg.frameCounter.elapsed >= 2.0:
@@ -175,6 +181,8 @@ proc main() =
         game.cam.translate(vec3f(0.0, move, 0.0))
       elif mPos.y == eg.screenSize.y - 1:
         game.cam.translate(vec3f(0.0, -move, 0.0))
+
+    grid.update()
 
     cursorSprite.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 

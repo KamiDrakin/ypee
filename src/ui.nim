@@ -1,10 +1,14 @@
 import glm
 
-import graphics
+import egutils
 import ypeeeg
+import graphics
 
 type
   Element = ref object of RootObj
+    pos, size: Vec2i
+    clickBox: Vec4f
+    children: seq[Element]
   Button* = ref object of Element
     rects: array[3, RectangleInst]
     center: Vec3f
@@ -12,35 +16,45 @@ type
     borderColor: Vec3f
     label: MonoText
     clickAction: proc()
-  Grid* = ref object
-    eg: YpeeEg
-    depth: float
-    width: int
-    elementPixelSize: Vec2f
-    elements: seq[Element]
+  Grid* = ref object of Element
+
+method draw(element: Element; posPx, sizePx: Vec2f; depth: float) {.base.} =
+  element.clickBox = vec4f(posPx, sizePx)
+  let scaledSizePx = sizePx / vec2f(element.size)
+  for child in element.children:
+    child.draw(posPx + vec2f(child.pos) * scaledSizePx, vec2f(child.size) * scaledSizePx, depth)
 
 method onIdle(element: Element) {.base.} = discard
 method onHover(element: Element) {.base.} = discard
 method onClick(element: Element) {.base.} = discard
 method onHeld(element: Element) {.base.} = discard
 
+proc add*(parent, child: Element) =
+  parent.children.add(child)
+
 proc newButton*(
   rectangle: Rectangle;
   fontSheet: SpriteSheet;
-  pos: Vec3f;
-  size: Vec2f;
-  fillColor, borderColor: Vec3f
+  fillColor, borderColor: Vec3f;
+  pos, size: Vec2i
 ): Button =
   result = new Button
-  result.center = pos + vec3f(size, 0.0) / 2.0
   result.fillColor = fillColor
   result.borderColor = borderColor
-  result.label = newMonoText(fontSheet)
   for i in countup(0, result.rects.high):
-    var rect = rectangle.newInstance()
-    rect.area = (vec4f(pos.xy + i.float, size - i.float * 2.0), pos.z + i.float * 0.01)
-    rect.color = [fillColor, borderColor, fillColor][i]
-    result.rects[i] = rect
+    result.rects[i] = rectangle.newInstance()
+  result.label = newMonoText(fontSheet)
+  result.pos = pos
+  result.size = size
+
+method draw(button: Button; posPx, sizePx: Vec2f; depth: float) =
+  procCall button.Element.draw(posPx, sizePx, depth)
+  button.center = vec3f(posPx + sizePx / 2.0, depth)
+  for i in countup(0, button.rects.high):
+    var rect = button.rects[i]
+    rect.area = (vec4f(posPx + i.float, sizePx - i.float * 2.0), depth + i.float * 0.1)
+    rect.color = [button.fillColor, button.borderColor, button.fillColor][i]
+  button.label.pos = button.center + vec3f(-button.label.width / 2.0, 0.0, 0.3)
 
 method onIdle(button: Button) =
   button.rects[1].color = button.borderColor
@@ -59,47 +73,25 @@ method onHeld(button: Button) =
 
 proc `label=`*(button: Button; text: string) =
   button.label.content = text
-  button.label.pos = button.center + vec3f(-button.label.width / 2.0, 0.0, 0.03)
+  button.label.pos = button.center + vec3f(-button.label.width / 2.0, 0.0, 0.3)
 
 proc onClick*(button: Button; action: proc()) =
   button.clickAction = action
 
-proc newGrid*(eg: YpeeEg; depth: SomeFloat; size: Vec2i): Grid =
+proc newGrid*(size: Vec2i): Grid =
   result = new Grid
-  result.eg = eg
-  result.depth = depth
-  result.width = size.x
-  result.elementPixelSize = vec2f(eg.screenSize) / vec2f(size)
-  result.elements.setLen(size.x * size.y)
+  result.size = size
 
-proc addButton*(
-  grid: Grid;
-  rectangle: Rectangle;
-  fontSheet: SpriteSheet;
-  pos, size: Vec2i;
-  fillColor, borderColor: Vec3f
-): Button =
-  let
-    pixelPos = vec3f(grid.elementPixelSize * vec2f(pos), grid.depth)
-    pixelSize = grid.elementPixelSize * vec2f(size)
-  result = newButton(rectangle, fontSheet, pixelPos, pixelSize, fillColor, borderColor)
-  for y in countup(0, size.y - 1):
-    for x in countup(0, size.x - 1):
-      grid.elements[(pos.y + y) * grid.width + (pos.x + x)] = result
+method draw*(grid: Grid; posPx: Vec2f = vec2f(0.0); sizePx: Vec2f = vec2f(1.0); depth: float = 0.0) =
+  procCall grid.Element.draw(posPx, sizePx, depth)
 
-proc update*(grid: Grid) =
+proc update*(grid: Grid; eg: YpeeEg) =
   let
-    mousePos = grid.eg.mouse.screenPos div vec2i(grid.elementPixelSize.ceil)
-    mouseClick = grid.eg.inpReleased(inMouseL)
-    mouseHeld = grid.eg.inpHeld(inMouseL)
-    indexAtMouse = mousePos.y * grid.width + mousePos.x
-  var processedElements = newSeqOfCap[Element](grid.elements.len)
-  for i, element in grid.elements:
-    if element == nil: continue
-    if element in processedElements: continue
-    if i == indexAtMouse:
-      if mouseClick: element.onClick()
-      if mouseHeld: element.onHeld()
-      else: element.onHover()
-      processedElements.add(element)
-    else: element.onIdle()
+    mouseClick = eg.inpReleased(inMouseL)
+    mouseHeld = eg.inpHeld(inMouseL)
+  for i, child in grid.children:
+    if child.clickBox.contains(vec2f(eg.mouse.screenPos)):
+      if mouseClick: child.onClick()
+      if mouseHeld: child.onHeld()
+      else: child.onHover()
+    else: child.onIdle()

@@ -12,6 +12,8 @@ type
     smFixed
     smStretch
     smAdjustWidth
+  EgEvent* = enum
+    eeResized
   Input* = enum
     inMouseL
     inMouseR
@@ -57,6 +59,7 @@ type
     frameCounter*: FrameCounter
     delta*: float
     time*: float
+    events*: array[EgEvent, bool]
     prevInputs: array[Input, bool]
     inputs: array[Input, bool]
     mouse*: MouseState
@@ -165,12 +168,16 @@ proc inpPressed*(eg: YpeeEg; key: Input): bool =
 proc inpReleased*(eg: YpeeEg; key: Input): bool =
   eg.prevInputs[key] and not eg.inputs[key]
         
-proc refreshProjection*(eg: YpeeEg; winSize: Vec2i) =
+proc refreshProjection*(eg: YpeeEg) =
+  let
+    sdlWinSize = eg.window.getSize
+    winSize = vec2i(sdlWinSize[0], sdlWinSize[1])
   var
     width: float
     height: float
   if winSize.x <= 0 or winSize.y <= 0:
     return
+  eg.events[eeResized] = true
   eg.winSize = winSize
   case eg.screenMode
     of smNoFrame:
@@ -234,8 +241,7 @@ proc newYpeeEg*(
 
   result.renderer.clearColor = (0.0, 0.0, 0.0)
   result.renderer.frame = newFrame(screenSize)
-  let winSize = result.window.getSize
-  result.refreshProjection(cast[Vec2i](winSize))
+  result.refreshProjection()
 
   result.mouse.screenPos = screenSize / 2
   showCursor(false)
@@ -247,6 +253,8 @@ proc delete*(eg: YpeeEg) =
   eg.window.destroy()
 
 proc processEvents*(eg: YpeeEg) =
+  for event in eg.events.mitems:
+    event = false
   var evt = sdl2.defaultEvent
   while pollEvent(evt):
     case evt.kind
@@ -256,9 +264,7 @@ proc processEvents*(eg: YpeeEg) =
       of WindowEvent:
         var windowEvent = cast[WindowEventPtr](addr(evt))
         if windowEvent.event == WindowEvent_Resized:
-          let newWidth = windowEvent.data1
-          let newHeight = windowEvent.data2
-          eg.refreshProjection(vec2i(newWidth.int32, newHeight.int32))
+          eg.refreshProjection()
       of KeyDown:
         let key = toInput(evt.key.keysym.scancode)
         eg.inputs[key] = true
@@ -317,3 +323,4 @@ proc endCamera*(eg: YpeeEg) =
 proc toggleFullscreen*(eg: YpeeEg) =
   eg.fullscreen = not eg.fullscreen
   discard eg.window.setFullscreen(if eg.fullscreen: SDL_WINDOW_FULLSCREEN_DESKTOP else: 0)
+  eg.refreshProjection()

@@ -132,12 +132,12 @@ proc main() =
 
   var
     uiRectangle = rectangle.clone()
-    grid = newGrid(vec2i(6, 14))
+    grid = newGrid(vec2i(0, 0), vec2i(6, 14), vec2i(1, 1))
     testButton = newButton(
       uiRectangle,
       fontSheet,
       vec3f(0.3), vec3f(0.6),
-      vec2i(2, 1), vec2i(2, 2)
+      vec2i(2, 1), vec2i(3, 3), vec2i(2, 2)
     )
   grid.add(testButton)
   var testCounter = 0

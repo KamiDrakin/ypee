@@ -6,7 +6,7 @@ import graphics
 
 type
   Element = ref object of RootObj
-    pos, size: Vec2i
+    pos, size, span: Vec2i
     clickBox: Vec4f
     children: seq[Element]
   Button* = ref object of Element
@@ -18,11 +18,15 @@ type
     clickAction: proc()
   Grid* = ref object of Element
 
+method update(element: Element; eg: YpeeEg) {.base.} =
+  for child in element.children:
+    child.update(eg)
+
 method draw(element: Element; posPx, sizePx: Vec2f; depth: float) {.base.} =
   element.clickBox = vec4f(posPx, sizePx)
   let scaledSizePx = sizePx / vec2f(element.size)
   for child in element.children:
-    child.draw(posPx + vec2f(child.pos) * scaledSizePx, vec2f(child.size) * scaledSizePx, depth)
+    child.draw(posPx + vec2f(child.pos) * scaledSizePx, vec2f(child.span) * scaledSizePx, depth + 1.0)
 
 method onIdle(element: Element) {.base.} = discard
 method onHover(element: Element) {.base.} = discard
@@ -36,7 +40,7 @@ proc newButton*(
   rectangle: Rectangle;
   fontSheet: SpriteSheet;
   fillColor, borderColor: Vec3f;
-  pos, size: Vec2i
+  pos, size, span: Vec2i
 ): Button =
   result = new Button
   result.fillColor = fillColor
@@ -44,8 +48,10 @@ proc newButton*(
   for i in countup(0, result.rects.high):
     result.rects[i] = rectangle.newInstance()
   result.label = newMonoText(fontSheet)
+  result.clickAction = proc() = discard
   result.pos = pos
   result.size = size
+  result.span = span
 
 method draw(button: Button; posPx, sizePx: Vec2f; depth: float) =
   procCall button.Element.draw(posPx, sizePx, depth)
@@ -78,14 +84,13 @@ proc `label=`*(button: Button; text: string) =
 proc onClick*(button: Button; action: proc()) =
   button.clickAction = action
 
-proc newGrid*(size: Vec2i): Grid =
+proc newGrid*(pos, size, span: Vec2i): Grid =
   result = new Grid
+  result.pos = pos
   result.size = size
+  result.span = span
 
-method draw*(grid: Grid; posPx: Vec2f = vec2f(0.0); sizePx: Vec2f = vec2f(1.0); depth: float = 0.0) =
-  procCall grid.Element.draw(posPx, sizePx, depth)
-
-proc update*(grid: Grid; eg: YpeeEg) =
+method update*(grid: Grid; eg: YpeeEg) =
   let
     mouseClick = eg.inpReleased(inMouseL)
     mouseHeld = eg.inpHeld(inMouseL)
@@ -95,3 +100,6 @@ proc update*(grid: Grid; eg: YpeeEg) =
       if mouseHeld: child.onHeld()
       else: child.onHover()
     else: child.onIdle()
+
+method draw*(grid: Grid; posPx: Vec2f = vec2f(0.0); sizePx: Vec2f = vec2f(1.0); depth: float = 0.0) =
+  procCall grid.Element.draw(posPx, sizePx, depth)

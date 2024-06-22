@@ -201,10 +201,9 @@ proc main() =
     if testTimer.tick:
       game.combat.board.setScreenPos(vec2f(128.0, 108.0 + testTimer.tickCount.float))
 
-    eg.beginCamera(game.cam)
-    tileSheet.draw(eg.renderer)
-    eg.layer()
-    eg.endCamera()
+    eg.cameraMode(game.cam):
+      tileSheet.draw(eg.renderer)
+      eg.layer()
     uiRectangle.draw(eg.renderer)
     cursorSheet.draw(eg.renderer)
     fontSheet.draw(eg.renderer)

@@ -225,20 +225,18 @@ proc resize*(frame: GLFrame; size: Vec2i) =
   if frame.fbo.id == 0: return
   frame.size = size
 
-  frame.fbo.use(ftBuffer):
-    frame.texture.useWith(tt2D):
-      image2D(GL_RGB, size[0], size[1], GL_RGB)
-      parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-      parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-      parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE) # temporary "fix"
-      parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-    
-    frame.fbo.texture2D(GL_COLOR_ATTACHMENT0, tt2D, frame.texture)
+  frame.texture.useWith(tt2D):
+    image2D(GL_RGB, size[0], size[1], GL_RGB)
+    parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+    parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+    parameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE) # temporary "fix"
+    parameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
 
+  frame.fbo.use(ftBuffer):
+    frame.fbo.texture2D(GL_COLOR_ATTACHMENT0, tt2D, frame.texture)
     frame.rbo.use():
       renderbufferStorage(GL_DEPTH24_STENCIL8, size[0], size[1])
     frame.fbo.renderbuffer(GL_DEPTH_STENCIL_ATTACHMENT, frame.rbo)
-
     doAssert glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
 
 proc newFrame*(size: Vec2i): GLFrame =

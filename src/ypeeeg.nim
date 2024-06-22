@@ -320,6 +320,11 @@ proc beginCamera*(eg: YpeeEg; cam: Camera2D) =
 proc endCamera*(eg: YpeeEg) =
   eg.renderer.setUniform("viewMat", mat4f())
 
+template cameraMode*(eg: YpeeEg; cam: Camera2D; p: untyped) =
+  eg.beginCamera(cam)
+  p
+  eg.endCamera()
+
 proc toggleFullscreen*(eg: YpeeEg) =
   eg.fullscreen = not eg.fullscreen
   discard eg.window.setFullscreen(if eg.fullscreen: SDL_WINDOW_FULLSCREEN_DESKTOP else: 0)

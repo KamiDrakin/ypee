@@ -132,20 +132,27 @@ proc main() =
 
   var
     uiRectangle = rectangle.clone()
-    grid = newGrid(vec2i(0, 0), vec2i(6, 14), vec2i(1, 1))
+    testGrid = newGrid(vec2i(0, 0), vec2i(6, 14), vec2i(1, 1))
+    testBox = newBox(
+      uiRectangle,
+      fontSheet,
+      vec3f(0.7, 0.0, 0.4), vec3f(0.4, 0.0, 0.7),
+      vec2i(0, 0), vec2i(4, 4), vec2i(3, 3)
+      )
     testButton = newButton(
       uiRectangle,
       fontSheet,
       vec3f(0.3), vec3f(0.6),
-      vec2i(2, 1), vec2i(3, 3), vec2i(2, 2)
+      vec2i(1, 1), vec2i(1, 1), vec2i(2, 2)
     )
-  grid.add(testButton)
+  testGrid.add(testBox)
+  testBox.add(testButton)
   var testCounter = 0
   testButton.label = "Click me"
   testButton.onClick do ():
     testCounter += 1
     testButton.label = $testCounter & (if testCounter > 1: " clicks" else: " click")
-  grid.draw(sizePx = vec2f(eg.screenSize))
+  testGrid.draw(sizePx = vec2f(eg.screenSize))
 
   while eg.nextFrame():
     if eg.frameCounter.elapsed >= 2.0:
@@ -184,8 +191,8 @@ proc main() =
         game.cam.translate(vec3f(0.0, -move, 0.0))
 
     if eg.events[eeResized]:
-      grid.draw(sizePx = vec2f(eg.screenSize))
-    grid.update(eg)
+      testGrid.draw(sizePx = vec2f(eg.screenSize))
+    testGrid.update(eg)
 
     cursorSprite.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 

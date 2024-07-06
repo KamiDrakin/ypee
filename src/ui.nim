@@ -16,6 +16,10 @@ type
     label: MonoText
     clickBox: Vec4f
     onClick: proc()
+  Box* = ref object of Element
+    rects: array[2, RectangleInst]
+    fillColor: Vec3f
+    borderColor: Vec3f
   Grid* = ref object of Element
 
 method update*(element: Element; eg: YpeeEg) {.base.} =
@@ -86,6 +90,28 @@ proc `label=`*(button: Button; text: string) =
 
 proc onClick*(button: Button; action: proc()) =
   button.onClick = action
+
+proc newBox*(
+  rectangle: Rectangle;
+  fontSheet: SpriteSheet;
+  fillColor, borderColor: Vec3f;
+  pos, size, span: Vec2i
+): Box =
+  result = new Box
+  result.fillColor = fillColor
+  result.borderColor = borderColor
+  for i in countup(0, result.rects.high):
+    result.rects[i] = rectangle.newInstance()
+  result.pos = pos
+  result.size = size
+  result.span = span
+
+method draw*(box: Box; posPx, sizePx: Vec2f; depth: float) =
+  procCall box.Element.draw(posPx, sizePx, depth)
+  for i in countup(0, box.rects.high):
+    var rect = box.rects[i]
+    rect.area = (vec4f(posPx + i.float, sizePx - i.float * 2.0), depth + i.float * 0.1)
+    rect.color = [box.borderColor, box.fillColor][i]
 
 proc newGrid*(pos, size, span: Vec2i): Grid =
   result = new Grid

@@ -138,7 +138,7 @@ proc main() =
       fontSheet,
       vec3f(0.7, 0.0, 0.4), vec3f(0.4, 0.0, 0.7),
       vec2i(0, 0), vec2i(4, 4), vec2i(3, 3)
-      )
+    )
     testButton = newButton(
       uiRectangle,
       fontSheet,

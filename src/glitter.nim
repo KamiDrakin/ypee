@@ -64,10 +64,10 @@ proc shader*(src: openArray[string]; shaderType: GLenum): Shader =
   glShaderSource(result.GLuint, 1, cast[cstringArray](shaderTextArr[0].addr), nil)
   glCompileShader(result.GLuint)
   var
-    success: bool
+    success: GLint
     infoLog = newString(1024)
-  glGetShaderiv(result.GLuint, GL_COMPILE_STATUS, cast[ptr GLint](success.addr))
-  if not success:
+  glGetShaderiv(result.GLuint, GL_COMPILE_STATUS, success.addr)
+  if not success.bool:
     glGetShaderInfoLog(result.GLuint, 1024, nil, infoLog.cstring)
     raise newException(Exception, "failed compiling shader " & $result.GLuint & "\n" & infoLog)
 
@@ -78,10 +78,10 @@ proc program*(shaders: openArray[Shader]): Program =
     glDeleteShader(shader.GLuint)
   glLinkProgram(result.GLuint)
   var
-    success: bool
+    success: GLint
     infoLog = newString(1024)
-  glGetProgramiv(result.GLuint, GL_LINK_STATUS, cast[ptr GLint](success.addr))
-  if not success:
+  glGetProgramiv(result.GLuint, GL_LINK_STATUS, success.addr)
+  if not success.bool:
     glGetProgramInfoLog(result.GLuint, 1024, nil, infoLog.cstring)
     raise newException(Exception, "failed linking program " & $result.GLuint & "\n" & infoLog)
 

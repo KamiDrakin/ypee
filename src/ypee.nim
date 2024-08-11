@@ -128,7 +128,7 @@ proc main() =
   var fpsText = newMonoText(fontSheet)
   fpsText.content = "0.0"
 
-  var testTimer = newTimer(1.0)
+  #var testTimer = newTimer(1.0)
 
   var
     uiRectangle = rectangle.clone()
@@ -157,6 +157,10 @@ proc main() =
   while eg.nextFrame():
     if eg.frameCounter.elapsed >= 2.0:
       fpsText.content = $eg.frameCounter.fps
+
+    if eg.events[eeResized]:
+      testGrid.draw(sizePx = vec2f(eg.screenSize))
+    let testGridResult = testGrid.update(eg)
 
     if eg.inpPressed(inKeyM):
       eg.screenMode =
@@ -190,23 +194,20 @@ proc main() =
       elif mPos.y == eg.screenSize.y - 1:
         game.cam.translate(vec3f(0.0, -move, 0.0))
 
-    if eg.events[eeResized]:
-      testGrid.draw(sizePx = vec2f(eg.screenSize))
-    testGrid.update(eg)
+    for tile in game.combat.board.tiles:
+      tile.sprites[0].tint = vec4f(0.5, 0.7, 0.3, 1.0)
+    if not testGridResult.getFlag(eurfMouseUsed):
+      let selectedTile = game.combat.board.tileAt(game.cam.relative(vec2f(eg.mouse.screenPos)))
+      if selectedTile != nil:
+        selectedTile.sprites[0].tint = vec4f(0.5, 0.5, 0.8, 1.0)
 
     cursorSprite.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 
     fpsText.pos = vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0)
 
-    for tile in game.combat.board.tiles:
-      tile.sprites[0].tint = vec4f(0.5, 0.7, 0.3, 1.0)
-    let selectedTile = game.combat.board.tileAt(game.cam.relative(vec2f(eg.mouse.screenPos)))
-    if selectedTile != nil:
-      selectedTile.sprites[0].tint = vec4f(0.5, 0.5, 0.8, 1.0)
-
-    testTimer.update(eg.delta)
-    if testTimer.tick:
-      game.combat.board.setScreenPos(vec2f(128.0, 108.0 + testTimer.tickCount.float))
+    #testTimer.update(eg.delta)
+    #if testTimer.tick:
+    #  game.combat.board.setScreenPos(vec2f(128.0, 108.0 + testTimer.tickCount.float))
 
     eg.cameraMode(game.cam):
       tileSheet.draw(eg.renderer)

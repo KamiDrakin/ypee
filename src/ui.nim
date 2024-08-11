@@ -5,6 +5,9 @@ import ypeeeg
 import graphics
 
 type
+  ElementUpdateResultFlag* = enum
+    eurfMouseUsed = 0
+  ElementUpdateResult = uint8
   Element = ref object of RootObj
     pos, size, span: Vec2i
     children: seq[Element]
@@ -20,11 +23,18 @@ type
     rects: array[2, RectangleInst]
     fillColor: Vec3f
     borderColor: Vec3f
+    clickBox: Vec4f
   Grid* = ref object of Element
 
-method update*(element: Element; eg: YpeeEg) {.base.} =
+proc setFlag(upRes: var ElementUpdateResult; flag: ElementUpdateResultFlag) =
+  upRes = upRes or 1.uint8 shl flag.int
+
+proc getFlag*(upRes: ElementUpdateResult; flag: ElementUpdateResultFlag): bool =
+  (upRes and 1.uint8 shl flag.int).bool
+
+method update*(element: Element; eg: YpeeEg): ElementUpdateResult {.base.} =
   for child in element.children:
-    child.update(eg)
+    result = result or child.update(eg)
 
 method draw*(element: Element; posPx: Vec2f = vec2f(0.0); sizePx: Vec2f = vec2f(1.0); depth: float = 0.0) {.base.} =
   let scaledSizePx = sizePx / vec2f(element.size)
@@ -63,8 +73,8 @@ proc onHeld(button: Button) =
   button.rects[1].color = button.fillColor
   button.rects[2].color = button.fillColor
 
-method update*(button: Button; eg: YpeeEg) =
-  procCall button.Element.update(eg)
+method update*(button: Button; eg: YpeeEg): ElementUpdateResult =
+  result = procCall button.Element.update(eg)
   let
     mouseClick = eg.inpReleased(inMouseL)
     mouseHeld = eg.inpHeld(inMouseL)
@@ -72,6 +82,7 @@ method update*(button: Button; eg: YpeeEg) =
     if mouseClick: button.onClick()
     if mouseHeld: button.onHeld()
     else: button.onHover()
+    result.setFlag(eurfMouseUsed)
   else: button.onIdle()
 
 method draw*(button: Button; posPx, sizePx: Vec2f; depth: float) =
@@ -106,12 +117,18 @@ proc newBox*(
   result.size = size
   result.span = span
 
+method update*(box: Box; eg: YpeeEg): ElementUpdateResult =
+  result = procCall box.Element.update(eg)
+  if box.clickBox.contains(vec2f(eg.mouse.screenPos)):
+    result.setFlag(eurfMouseUsed)
+
 method draw*(box: Box; posPx, sizePx: Vec2f; depth: float) =
   procCall box.Element.draw(posPx, sizePx, depth)
   for i in countup(0, box.rects.high):
     var rect = box.rects[i]
     rect.area = (vec4f(posPx + i.float, sizePx - i.float * 2.0), depth + i.float * 0.1)
     rect.color = [box.borderColor, box.fillColor][i]
+  box.clickBox = vec4f(posPx, sizePx)
 
 proc newGrid*(pos, size, span: Vec2i): Grid =
   result = new Grid

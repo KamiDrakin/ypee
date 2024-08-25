@@ -21,6 +21,11 @@ var
   tileSheet: SpriteSheet
 
 type
+  CharacterType = enum
+    ctPlayer
+    ctFriendly
+    ctNeutral
+    ctEnemy
   Clickbox = object
     center: Vec2f
     shape: seq[Vec2f]
@@ -35,11 +40,23 @@ type
   Combat = ref object
     board: Board
   Overworld = ref object
+  Roll = 1..20
+  Character = ref object
+    charType: CharacterType
+    name: string
+    hp, maxHp: int
+    mp, maxMp: int
+    atk, def: int
+    acc, eva: int
+  Player = ref object
+    characters: seq[Character]
+    shushen: int
   Game = ref object
     eg: YpeeEg
     cam: Camera2D
     combat: Combat
     overworld: Overworld
+    player: Player
 
 proc newTile(pos: Vec2f): Tile =
   const
@@ -103,6 +120,28 @@ proc newCombat(): Combat =
 proc newOverworld(): Overworld =
   result = new Overworld
 
+proc newCharacter(charType: CharacterType; name: string; maxHp, maxMp: int): Character =
+  result = new Character
+  result.charType = charType
+  result.name = name
+  result.hp = maxHp
+  result.maxHp = maxHp
+  result.mp = maxMp
+  result.maxMp = maxMp
+  result.atk = 1
+  result.def = 0
+  result.acc = 1
+  result.eva = 0
+
+proc hitThreshold(chara, target: Character): Roll =
+  (10 + target.eva - chara.acc).clamp(Roll.low, Roll.high)
+
+proc hitLanded(chara, target: Character; roll: Roll): bool =
+  roll >= chara.hitThreshold(target)
+
+proc newPlayer(): Player =
+  result = new Player
+
 proc main() =
   randomize()
 
@@ -121,6 +160,17 @@ proc main() =
   game.combat.board.setScreenPos(vec2f(128.0, 108.0))
 
   game.overworld = newOverworld()
+
+  var silomil = newCharacter(ctPlayer, "Silomil", 10, 10)
+  silomil.acc = 5
+
+  game.player = newPlayer()
+  game.player.characters.add(silomil)
+
+  var testTarget = newCharacter(ctEnemy, "Mind Goblin", 10, 10)
+  testTarget.eva = 50
+
+  echo silomil.hitLanded(testTarget, rand(Roll))
 
   var cursorSprite = newSprite(cursorSheet, vec2i(-6, 5))
   cursorSprite.tint = vec4f(0.8, 0.4, 0.2, 1.0)

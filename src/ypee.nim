@@ -168,9 +168,7 @@ proc main() =
   game.player.characters.add(silomil)
 
   var testTarget = newCharacter(ctEnemy, "Mind Goblin", 10, 10)
-  testTarget.eva = 50
-
-  echo silomil.hitLanded(testTarget, rand(Roll))
+  testTarget.eva = 5
 
   var cursorSprite = newSprite(cursorSheet, vec2i(-6, 5))
   cursorSprite.tint = vec4f(0.8, 0.4, 0.2, 1.0)
@@ -197,11 +195,9 @@ proc main() =
     )
   testGrid.add(testBox)
   testBox.add(testButton)
-  var testCounter = 0
-  testButton.label = "Click me"
+  testButton.label = "Attack"
   testButton.onClick do ():
-    testCounter += 1
-    testButton.label = $testCounter & (if testCounter > 1: " clicks" else: " click")
+    testButton.label = if silomil.hitLanded(testTarget, rand(Roll)): "Hit" else: "Miss"
   testGrid.draw(sizePx = vec2f(eg.screenSize))
 
   while eg.nextFrame():
@@ -253,7 +249,7 @@ proc main() =
 
     cursorSprite.pos = vec3f(vec2f(eg.mouse.screenPos), 100.0)
 
-    fpsText.pos = vec3f(4.0, eg.screenSize[1].float - 4.0, 10.0)
+    fpsText.pos = vec3f(4.0, eg.screenSize.y.float - 4.0, 10.0)
 
     #testTimer.update(eg.delta)
     #if testTimer.tick:

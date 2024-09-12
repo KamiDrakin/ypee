@@ -3,6 +3,7 @@ import std/sugar
 import glm
 import sdl2
 
+import sdl2ext
 import egutils
 import glrenderer
 
@@ -212,6 +213,7 @@ proc newYpeeEg*(
     (screenSize.x * defaultScale).cint, (screenSize.y * defaultScale).cint,
     SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE
   )
+  result.window.setMinimumSize(defaultScreenSize.x, defaultScreenSize.y)
   discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3)
   discard glSetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3)
   discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE)
